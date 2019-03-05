@@ -79,33 +79,31 @@ void loop()
 
         // Add in pause keystroke after every servo change once the marble passes
         // a photocell gate for debugging
-        if (input[0] == 'y')
+        switch (input[0])
         {
+        case 'y':
             SolveMaze();
-        }
-        else if (input[0] == 'c')
-        {
+            break;
+        case 'c':
             SetServos(90, 90, 90, 90, 90, 90);
             ReadAllPhotocells();
-        }
-        else if (input[0] == 'n')
-        {
+            break;
+        case 'n':
             Serial.println("Okay I will just wait until you say yes.");
-        }
-        else if (input[0] == 's')
-        {
+            break;
+        case 's':
             SetServos(350, 350, 350, 350, 350, 350);
-        }
-        else if (input[0] == '-')
-        {
+            break;
+        case '-':
             SetServos(SERVOMINS[0], SERVOMINS[1], SERVOMINS[2], SERVOMINS[3], SERVOMINS[4], SERVOMINS[5]);
-        }
-        else if (input[0] == '+')
-        {
+            break;
+        case '+':
             SetServos(SERVOMAXS[0], SERVOMAXS[1], SERVOMAXS[2], SERVOMAXS[3], SERVOMAXS[4], SERVOMAXS[5]);
-        }
-        else if (input[0] == 'm')
-        {
+            break;
+        case 'p':
+            ReadAllPhotocells();
+            break;
+        case 'm':
             //TODO
             do
             {
@@ -195,6 +193,7 @@ void loop()
                     pwm.setPWM(i + 1, 0, servo_settings[i]); // added +1 to match PWM port numbering (pints 1..6 used)
                 }
             } while (input[0] == 'esc');
+            break;
         }
     }
     input = "";
@@ -229,13 +228,12 @@ void SetServos(int motor_1, int motor_2, int motor_3, int motor_4, int motor_5, 
         if (temp_servo_settings[i] != SERVOMINS[i] && temp_servo_settings[i] >= 0 && temp_servo_settings[i] < 180)
         {
             servo_settings[i] = map(temp_servo_settings[i], 0, 179, SERVOMINS[i], SERVOMAXS[i]);
-            pwm.setPWM(i + 1, 0, servo_settings[i]); // added +1 to match PWM port numbering (pins 1..6 used)
         }
         else
         {
             servo_settings[i] = temp_servo_settings[i];
-            pwm.setPWM(i + 1, 0, servo_settings[i]); // added +1 to match PWM port numbering (pins 1..6 used)
         }
+        pwm.setPWM(i + 1, 0, servo_settings[i]); // added +1 to match PWM port numbering (pins 1..6 used)
     }
 }
 
