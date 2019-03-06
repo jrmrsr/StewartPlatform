@@ -7,24 +7,27 @@
 
 #include <Wire.h>
 #include <Adafruit_PWMServoDriver.h>
-
+#include <LiquidCrystal.h>
+// TODO FIND ENCONDER VALUES FOR TOWERPRO MG995
 // Motor Limits
 // Pulse length counts are out of 4096
 // Indexed from servo 1 - 6
-const int SERVOMINS[6] = {140, 165, 105, 130, 135, 155};
-const int SERVOMAXS[6] = {520, 580, 420, 450, 490, 520};
+const int SERVOMINS[6] = {160, 165, 105, 130, 135, 155};
+const int SERVOMAXS[6] = {500, 540, 370, 430, 470, 500};
 const int SERVOCHG = 5;
 // Gate Reading Limit
 const int GATE_LIMIT = 100;
 
 // Photocell Variables
 // Pins
-const int GATE_PIN_1 = A8;
-const int GATE_PIN_2 = A9;
-const int GATE_PIN_3 = A10;
-const int GATE_PIN_4 = A11;
-const int GATE_PIN_5 = A12;
-const int GATE_PIN_6 = A13;
+const int GATE_PIN_1 = A10;
+const int GATE_PIN_2 = A11;
+const int GATE_PIN_3 = A12;
+const int GATE_PIN_4 = A13;
+const int GATE_PIN_5 = A14;
+const int GATE_PIN_6 = A15;
+const int JOYSTICK_1_1 = A8; // slider variable connecetd to analog pin 0
+const int JOYSTICK_1_2 = A9; // slider variable connecetd to analog pin 1
 // Reading
 int gate_reading_1 = 0;
 int gate_reading_2 = 0;
@@ -32,8 +35,14 @@ int gate_reading_3 = 0;
 int gate_reading_4 = 0;
 int gate_reading_5 = 0;
 int gate_reading_6 = 0;
+int joystick_reading_1_1 = 0;
+int joystick_reading_1_2 = 0;
+bool joystick_on = false;
+bool keyboard_off = false;
 // Initializing PWM Shield
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
+// Initializing lCD
+LiquidCrystal lcd(19, 18, 47, 49, 51, 53); /// REGISTER SELECT PIN,ENABLE PIN,D4 PIN,D5 PIN, D6 PIN, D7 PIN
 
 /*
 NOTE
@@ -49,7 +58,9 @@ void setup()
     Serial.begin(9600);    // opens serial port, sets data rate to 9600 bps
     Serial.setTimeout(10); // change default (1000ms) to have faster response time
     pwm.begin();
+    // TRY TO USE 50 HZ, LOWEST IS 40 HZ
     pwm.setPWMFreq(60); // Analog servos run at ~60 Hz updates
+    lcd.begin(16, 2);
     int mid_1 = 0;
     int mid_2 = 0;
     for (int i = 0; i < 6; i++)
@@ -69,11 +80,12 @@ void setup()
 }
 
 void loop()
-{
+{   
+    keyboard_off = JoysticksOn();
     // Check keyboard string
-    if (Serial.available() > 0)
+    // ServoValues();
+    if (Serial.available() > 0 && !keyboard_off)// Joystick input is not detected)
     {
-        ServoValues();
         input = Serial.readString();
         Serial.println(input);
 
@@ -103,114 +115,41 @@ void loop()
         case 'p':
             ReadAllPhotocells();
             break;
-        case 'm':
-            //TODO
-            do
-            {
-                Serial.println("Manual Control Mode");
-                input = Serial.readString();
-                switch (input[0])
-                {
-                    // Input of "1" to "6" -> increase respective (1..6) values
-                    // Input of [q,w,e,r,t,y] -> decrease respective (1..6) values
-
-                case '1':
-                    servo_settings[0] = min(servo_settings[0] + SERVOCHG, SERVOMAXS[0]);
-                    break;
-                case 'q':
-                    servo_settings[0] = max(servo_settings[0] - SERVOCHG, SERVOMINS[0]);
-                    break;
-
-                case '2':
-                    servo_settings[1] = min(servo_settings[1] + SERVOCHG, SERVOMAXS[1]);
-                    break;
-                case 'w':
-                    servo_settings[1] = max(servo_settings[1] - SERVOCHG, SERVOMINS[1]);
-                    break;
-
-                case '3':
-                    servo_settings[2] = min(servo_settings[2] + SERVOCHG, SERVOMAXS[2]);
-                    break;
-                case 'e':
-                    servo_settings[2] = max(servo_settings[2] - SERVOCHG, SERVOMINS[2]);
-                    break;
-
-                case '4':
-                    servo_settings[3] = min(servo_settings[3] + SERVOCHG, SERVOMAXS[3]);
-                    break;
-                case 'r':
-                    servo_settings[3] = max(servo_settings[3] - SERVOCHG, SERVOMINS[3]);
-                    break;
-
-                case '5':
-                    servo_settings[4] = min(servo_settings[4] + SERVOCHG, SERVOMAXS[4]);
-                    break;
-                case 't':
-                    servo_settings[4] = max(servo_settings[4] - SERVOCHG, SERVOMINS[4]);
-                    break;
-
-                case '6':
-                    servo_settings[5] = min(servo_settings[5] + SERVOCHG, SERVOMAXS[5]);
-                    break;
-                case 'y':
-                    servo_settings[5] = max(servo_settings[5] - SERVOCHG, SERVOMINS[5]);
-                    break;
-
-                case '<':
-                    for (int i = 0; i < 6; i++)
-                    {
-                        servo_settings[i] = SERVOMINS[i];
-                    }
-                    break;
-                case '>':
-                    for (int i = 0; i < 6; i++)
-                    {
-                        servo_settings[i] = SERVOMAXS[i];
-                    }
-                    break;
-
-                case '-':
-                    for (int i = 0; i < 6; i++)
-                    {
-                        servo_settings[i] = max(servo_settings[i] - 5, SERVOMINS[i]);
-                    }
-                    break;
-
-                case '+':
-                    for (int i = 0; i < 6; i++)
-                    {
-                        servo_settings[i] = min(servo_settings[i] + 5, SERVOMAXS[i]);
-                    }
-                    break;
-
-                default:
-                    Serial.print(" No action taken");
-                } // end switch statement
-
-                // Update servo commands:
-                for (int i = 0; i < 6; i++)
-                {
-                    pwm.setPWM(i + 1, 0, servo_settings[i]); // added +1 to match PWM port numbering (pints 1..6 used)
-                }
-            } while (input[0] == 'esc');
-            break;
         }
+    } else {
+        // Manual control
+        ManualControl();
     }
     input = "";
+    delay(40); // servos cannot receive pwm changes any quicker than this
 }
 
 void ServoValues()
 {
-    Serial.print(" Servo values = [");
-    for (int i = 0; i < 6; i++)
+    int stringLength = 0;
+    int curMillis = millis();
+    int prevMillis = 0;
+    // lcd.print("Servo values");
+    // lcd.setCursor(0, 1);
+    lcd.setCursor(0, 0);
+    lcd.print("[");
+    for (int i = 0; i < 3; i++)
     {
-        Serial.print(servo_settings[i]);
-        Serial.print(" ");
+        lcd.print(servo_settings[i]);
+        lcd.print(",");
     }
-    Serial.println("]");
+    lcd.setCursor(0, 1);
+    for (int i = 3; i < 5; i++)
+    {
+        lcd.print(servo_settings[i]);
+        lcd.print(",");
+    }
+    lcd.print(servo_settings[5]);
+    lcd.print("]");
 }
 
 // Takes in motor angle in degrees and then returns an array of PWM values for motors
+// ADD A DEAD BAND DELAY TO REDUCE JITTER
 void SetServos(int motor_1, int motor_2, int motor_3, int motor_4, int motor_5, int motor_6)
 {
     // temp array
@@ -227,6 +166,7 @@ void SetServos(int motor_1, int motor_2, int motor_3, int motor_4, int motor_5, 
         // *NOTE* three checks are added for testing purposes. If they take too long to compute, they will be removed.
         if (temp_servo_settings[i] != SERVOMINS[i] && temp_servo_settings[i] >= 0 && temp_servo_settings[i] < 180)
         {
+            // ADD SERVO DEAD BAND (NO CHANGE FOR SMALL DELTAS)
             servo_settings[i] = map(temp_servo_settings[i], 0, 179, SERVOMINS[i], SERVOMAXS[i]);
         }
         else
@@ -235,6 +175,7 @@ void SetServos(int motor_1, int motor_2, int motor_3, int motor_4, int motor_5, 
         }
         pwm.setPWM(i + 1, 0, servo_settings[i]); // added +1 to match PWM port numbering (pins 1..6 used)
     }
+    ServoValues();
 }
 
 void SolveMaze()
@@ -293,7 +234,7 @@ void ReadAllPhotocells()
     gate_reading_4 = analogRead(GATE_PIN_4);
     gate_reading_5 = analogRead(GATE_PIN_5);
     gate_reading_6 = analogRead(GATE_PIN_6);
-    Serial.print("Photocell Values 1-6:");
+    Serial.print("Photocell Values 1-6: ");
     Serial.print(gate_reading_1);
     Serial.print(", ");
     Serial.print(gate_reading_2);
@@ -305,4 +246,29 @@ void ReadAllPhotocells()
     Serial.print(gate_reading_5);
     Serial.print(", ");
     Serial.println(gate_reading_6);
+}
+
+void ManualControl()
+{
+    ReadJoysticks();
+}
+
+void ReadJoysticks()
+{
+    joystick_reading_1_1 = analogRead(JOYSTICK_1_1);
+    delay(100);
+    joystick_reading_1_2 = analogRead(JOYSTICK_1_2);
+    Serial.print("Joystick Values 1-6: ");
+    Serial.print(joystick_reading_1_1);
+    Serial.print(",");
+    Serial.println(joystick_reading_1_2);
+}
+
+bool JoysticksOn()
+{
+    if (joystick_reading_1_1 || joystick_reading_1_2)
+    {
+        joystick_on = true;
+    }
+    return joystick_on;
 }

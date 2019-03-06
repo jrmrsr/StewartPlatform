@@ -27,11 +27,11 @@ disp(DISP6);
 %function [alphao, alpha] = CalcAngles(xb,yb,zb,xp,yp,zp,Beta)
 
 %% Lengths 
-s= 140 % 177.4; %% linkage length
+s= 177.4 %140 % 177.4; %% linkage length
 a= 35; % 35; %% Servo arm length
 
 %% Angles
-Pitch=15;  %% Theta
+Pitch=0.1309;  %% Theta
 Roll=0;   %% Q
 Yaw=0;    %% Cactus
 
