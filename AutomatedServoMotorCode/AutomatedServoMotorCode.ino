@@ -15,8 +15,8 @@
 const int SERVOMINS[6] = {160, 165, 105, 130, 135, 155};
 const int SERVOMAXS[6] = {500, 540, 370, 430, 470, 500};
 const int SERVOCHG = 5;
-const int SERVO_INTERVAL_WORDS = 2500;
-const int SERVO_INTERVAL_NUMBERS = 5000;
+const int SERVO_INTERVAL_WORDS = 5000;
+const int SERVO_INTERVAL_NUMBERS = 7000;
 
 // Gate Reading Limit
 const int GATE_LIMIT = 100;
@@ -33,8 +33,8 @@ const int JOYSTICK_1_1 = A8; // slider variable connecetd to analog pin 0
 const int JOYSTICK_1_2 = A9; // slider variable connecetd to analog pin 1
 
 // Base Parameters
-const int LINKAGE_LENGTH = 90;
-const int SERVO_ARM_LENGTH = 35;
+const int LINKAGE_LENGTH = 90;   // s in matlab
+const int SERVO_ARM_LENGTH = 35; // a in matlab
 const float BASE_POSITIONS[6][3] = {
     {83.5, 32.81, .0},
     {-13.3, 88.72, 0.0},
@@ -62,7 +62,7 @@ float psi = 0.0;
 float home_height[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 // Runs (xp-xb)^2 and (yp-yb)^2
 float base_platform_deltas[6][2] = {{0.0, 0.0}, {0.0, 0.0}, {0.0, 0.0}, {0.0, 0.0}, {0.0, 0.0}, {0.0, 0.0}};
-
+float alphas[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 // Reading
 int gate_reading_1 = 0;
 int gate_reading_2 = 0;
@@ -119,6 +119,11 @@ void setup()
     SetServos(servo_settings[0], servo_settings[1], servo_settings[2], servo_settings[3], servo_settings[4], servo_settings[5]);
     // SetServos(350, 350, 350, 350, 350, 350);
     Serial.println("Would you like me to solve this maze for you? (y/n/c)");
+    //Test Code;
+    for (int i = 0; i < 10; i++)
+    {
+        ManualControl();
+    }
 }
 
 void loop()
@@ -170,11 +175,13 @@ void loop()
         lcd.clear();
         lcd.setCursor(0, 0);
         lcd.print("Servo Values:");
+        Serial.println("ON");
     }
     if (millis() > msg_servo_2 + SERVO_INTERVAL_NUMBERS)
     {
         msg_servo_2 = millis();
         ServoValues();
+        Serial.println("ON");
     }
     input = "";
     delay(40); // servos cannot receive pwm changes any quicker than this
@@ -198,6 +205,7 @@ void ServoValues()
     }
     lcd.print(servo_settings[5]);
     lcd.print("]");
+    Serial.println("on");
 }
 
 // Takes in motor angle in degrees and then returns an array of PWM values for motors
@@ -302,7 +310,7 @@ void ReadAllPhotocells()
 void ManualControl()
 {
     // index is w * h
-    static double rotation_matrix[9] = {0.0, 0.0, 0.0,0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+    static double rotation_matrix[9] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
     ReadJoysticks();
     theta = DegToRad(theta);
     phi = DegToRad(phi);
@@ -310,8 +318,19 @@ void ManualControl()
     CalcRotation(rotation_matrix, psi, theta, phi);
     for (int i = 0; i < 6; i++)
     {
+        // home_height[i] is also zt[i]
         home_height[i] = sqrt((LINKAGE_LENGTH * LINKAGE_LENGTH + SERVO_ARM_LENGTH * SERVO_ARM_LENGTH - base_platform_deltas[i][0] - base_platform_deltas[i][1] - PLATFORM_POSITIONS[i][2]));
     }
+    // for loop to calc servo angles based on 1-d coord array
+    // ServoAngle(alpha[2], base_coord[i],base_coord[i+1],base_coord[i+2] ...) <- to match matlab code
+    // in loop, i+=3;
+    Serial.print("Home Height Values: [ ");
+    for (int i = 0; i < 3; i++)
+    {
+        Serial.print(home_height[i]);
+        Serial.print(" ");
+    }
+    Serial.println("]");
 }
 
 void ReadJoysticks()
@@ -339,9 +358,47 @@ bool JoysticksOn()
 }
 
 // ServoAngles(&alphas, ) <- pass in variables as such
-void ServoAngles(float *alphas, int alpha_size, float *base_coord, float *platform_coord, float Beta)
+void ServoAngles(double alphas[], double base_x, double base_y, double base_z, double plat_x, double plat_y, double plat_z, double Beta, double rot[])
 {
-    // static float li =
+    static double li[3] = {0.0, 0.0, 0.0};
+    static double qi[3] = {0.0, 0.0, 0.0};
+    static double base_to_center[3] = {0.0, 0.0, 0.0};
+    static double mult_result[3] = {0.0, 0.0, 0.0};
+    static double sum_result[3] = {0.0, 0.0, 0.0};
+    static double sub_result[3] = {0.0, 0.0, 0.0};
+    static double length_possible[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+    static double lsquared = 0.0, L = 0.0, M = 0.0, N = 0.0;
+    static double base_coord[3] = {base_x, base_y, base_z};
+    static double platform_coord[3] = {plat_x, plat_y, plat_z};
+
+    static bool possible = true;
+    for (int i = 0; i < 6; i++)
+    {
+        base_to_center[2] = home_height[i];
+
+        MatrixMultRotation(rot, platform_coord, mult_result);
+        // Note, subtraction is not commutative, order matters
+        MatrixSummation(mult_result, base_to_center, 1, 3, qi, true);
+        MatrixSummation(qi, base_coord, 1, 3, li, false);
+
+        length_possible[i] += (li[i] * li[i]);
+    }
+    lsquared = (qi[1] * qi[1] + qi[2] * qi[2] + qi[3] * qi[3]) + (base_x * base_x + base_y * base_y + base_z * base_z) - 2 * (qi[1] * base_x + qi[2] * base_y + qi[3] * base_z);
+    L = lsquared - (LINKAGE_LENGTH * LINKAGE_LENGTH - SERVO_ARM_LENGTH * SERVO_ARM_LENGTH);
+    M = 2 * SERVO_ARM_LENGTH * (qi[3] - base_z);
+    N = 2 * SERVO_ARM_LENGTH * (cos(DegToRad(Beta)) * (qi[1] - base_x) + sin(DegToRad(Beta)) * (qi[2] - base_y));
+    // Check whether servo angles are possible
+    while (possible == true)
+    {
+        int i = 0;
+        if (abs(length_possible[i]) >= 1)
+        {
+            possible = false;
+            Serial.println("Angles are not possible");
+            return;
+        }
+        i++;
+    }
 }
 
 float DegToRad(float deg)
@@ -353,36 +410,73 @@ float DegToRad(float deg)
 void CalcRotation(double rot[], float psi, float theta, float phi)
 {
     // index as width * row + col
-    rot[(3*0+0)] = cos(psi) * cos(theta);
-    rot[(3*0+1)] = -sin(psi) * cos(phi) + cos(psi) * sin(theta) * sin(phi);
-    rot[(3+0+2)] = sin(psi) * sin(phi) + cos(psi) * sin(theta) * cos(phi);
-    rot[(3*1+0)] = sin(psi) * cos(theta);
-    rot[(3*1+1)] = cos(psi) * cos(phi) + sin(psi) * sin(theta) * sin(phi);
-    rot[(3*1+2)] = -cos(psi) * sin(phi) + sin(psi) * sin(theta) * cos(phi);
-    rot[(3*2+0)] = -sin(theta);
-    rot[(3*2+1)] = cos(theta) * sin(phi);
-    rot[(3*2+2)] = cos(theta) * cos(phi);
+    rot[(3 * 0 + 0)] = cos(psi) * cos(theta);
+    rot[(3 * 0 + 1)] = -sin(psi) * cos(phi) + cos(psi) * sin(theta) * sin(phi);
+    rot[(3 + 0 + 2)] = sin(psi) * sin(phi) + cos(psi) * sin(theta) * cos(phi);
+    rot[(3 * 1 + 0)] = sin(psi) * cos(theta);
+    rot[(3 * 1 + 1)] = cos(psi) * cos(phi) + sin(psi) * sin(theta) * sin(phi);
+    rot[(3 * 1 + 2)] = -cos(psi) * sin(phi) + sin(psi) * sin(theta) * cos(phi);
+    rot[(3 * 2 + 0)] = -sin(theta);
+    rot[(3 * 2 + 1)] = cos(theta) * sin(phi);
+    rot[(3 * 2 + 2)] = cos(theta) * cos(phi);
+    Serial.print("Rotation Matrix Values: [ ");
+    for (int i = 0; i < 9; i++)
+    {
+        Serial.print(rot[i]);
+        Serial.print(" ");
+    }
+    Serial.println("]");
 }
 
 // What is q or p?
-void MatrixMultRotation(float *rot, float *platform, float *result)
+void MatrixMultRotation(double rot[], double platform[], double result[])
 {
     for (int i = 0; i < 3; i++)
     {
         for (int j = 0; j < 3; j++)
         {
-            result[i] += rot[(3*i+j)] * platform[j];
+            result[i] += rot[(3 * i + j)] * platform[j];
         }
     }
+    // For debugging
+    Serial.print("Matrix Multiplication Values: [ ");
+    for (int i = 0; i < 3; i++)
+    {
+        Serial.print(result[i]);
+        Serial.print(" ");
+    }
+    Serial.println("]");
 }
 
-void MatrixSummation(float M1[], float M2[], int rows, int col, float results[])
+void MatrixSummation(double M1[], double M2[], int rows, int col, double results[], bool sum)
 {
-    for (int i = 0; i < rows; i++)
+    if (sum)
     {
-        for (int j = 0; j < col; j++)
+        for (int i = 0; i < rows; i++)
         {
-            results[((col+1)*i+j)] += M1[((col+1)*i+j)] + M2[((col+1)*i+j)];
+            for (int j = 0; j < col; j++)
+            {
+                // Might need to simplify this to be more streamlined for our case, depending on computation time.
+                results[((col + 1) * i + j)] = M1[((col + 1) * i + j)] + M2[((col + 1) * i + j)];
+            }
         }
     }
+    else
+    {
+        for (int i = 0; i < rows; i++)
+        {
+            for (int j = 0; j < col; j++)
+            {
+                results[((col + 1) * i + j)] = M1[((col + 1) * i + j)] - M2[((col + 1) * i + j)];
+            }
+        }
+    }
+    // For debugging
+    Serial.print("Matrix Summation/Subtraction Values: [ ");
+    for (int i = 0; i < 3; i++)
+    {
+        Serial.print(results[i]);
+        Serial.print(" ");
+    }
+    Serial.println("]");
 }
