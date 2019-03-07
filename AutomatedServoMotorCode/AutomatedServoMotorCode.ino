@@ -31,6 +31,8 @@ const int GATE_PIN_5 = A14;
 const int GATE_PIN_6 = A15;
 const int JOYSTICK_1_1 = A8; // slider variable connecetd to analog pin 0
 const int JOYSTICK_1_2 = A9; // slider variable connecetd to analog pin 1
+const int JOYSTICK_1_SW_pin = 32; // switch output connected to digital pin 32
+
 
 // Base Parameters
 const int LINKAGE_LENGTH = 90;
@@ -50,6 +52,9 @@ const float PLATFORM_POSITIONS[6][3] = {
     {32.3, -67.95, 0.0},
     {42.7, -61.95, 0.0}};
 
+const int JOYSTICK_1_1_X = 493; // MID VALUE FOR X DIRECTION
+const int JOYSTICK_1_1_Y = 515; // MID VALUE FOR X DIRECTION
+
 const float BETA[3] = {0.0,120.0,240.0}
 
 // Angles
@@ -67,6 +72,8 @@ int gate_reading_5 = 0;
 int gate_reading_6 = 0;
 int joystick_reading_1_1 = 0;
 int joystick_reading_1_2 = 0;
+int joystick_reading_1_SW_pin = 0;
+
 bool joystick_on = false;
 bool keyboard_off = false;
 // Initializing PWM Shield
@@ -93,6 +100,16 @@ void setup()
     // TRY TO USE 50 HZ, LOWEST IS 40 HZ
     pwm.setPWMFreq(60); // Analog servos run at ~60 Hz updates
     lcd.begin(16, 2);
+    pinMode(JOYSTICK_1_SW_pin, INPUT);// SET PIN AS INPUT
+    digitalWrite(JOYSTICK_1_SW_pin, HIGH); // ENABLE THE INTERNAL PULLUP ON THE INPUT PIN
+    {
+        case /* constant-expression */:
+            /* code */
+            break;
+    
+        default:
+            break;
+    })
     int mid_1 = 0;
     int mid_2 = 0;
     for (int i = 0; i < 6; i++)
@@ -299,22 +316,53 @@ void ReadJoysticks()
     joystick_reading_1_1 = analogRead(JOYSTICK_1_1);
     delay(100);
     joystick_reading_1_2 = analogRead(JOYSTICK_1_2);
+    delay(100);
+    joystick_reading_1_SW_pin = digitalRead(JOYSTICK_1_SW_pin);
+    delay(100);
+
+
+    Serial.print("Switch:  ");
+    Serial.print(digitalRead(JOYSTICK_1_SW_pin));
     Serial.print("Joystick Values 1-6: ");
     Serial.print(joystick_reading_1_1);
     Serial.print(",");
     Serial.println(joystick_reading_1_2);
+
 }
 
-bool JoysticksOn()
-{
-    if (joystick_reading_1_1 || joystick_reading_1_2)
+bool JoysticksOn() // might not use this
+{   ReadJoysticks();
+
+    // maping for psi
+    if (joystick_reading_1_1 > 700)
     {
-        joystick_on = true;
+        //joystick_on = true;
+    
+        psi = 15 * (joystick_reading_1_1 - 700)/323;
+
     }
-    else
+    else if (joystick_reading_1_1 < 323)
     {
-        joystick_on = false;
+        //joystick_on = false;
+        psi = -15 * (joystick_reading_1_1 - 700)/323;
+     
     }
+    //maping for phi
+    if (joystick_reading_1_2 > 700)
+    {
+        //joystick_on = true;
+    
+        phi = 15 * (joystick_reading_1_2 - 700)/323;
+
+    }
+    else if (joystick_reading_1_2 < 323)
+    {
+        //joystick_on = false;
+        psi = - 15 * (joystick_reading_1_2 - 700)/323;
+     
+    }
+    // mapping for theta
+    //
     return joystick_on;
 }
 
