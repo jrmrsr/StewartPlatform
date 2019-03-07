@@ -50,7 +50,7 @@ const float PLATFORM_POSITIONS[6][3] = {
     {32.3, -67.95, 0.0},
     {42.7, -61.95, 0.0}};
 
-const float BETA[3] = {0.0,120.0,240.0}
+const float BETA[3] = {0.0,120.0,240.0};
 
 // Angles
 float theta = 0.0;
@@ -75,7 +75,7 @@ Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
 LiquidCrystal lcd(19, 18, 47, 49, 51, 53); /// REGISTER SELECT PIN,ENABLE PIN,D4 PIN,D5 PIN, D6 PIN, D7 PIN
 // Message Timing
 unsigned long msg_servo_1 = 0;
-unsigner long msg_servo_2 = 0;
+unsigned long msg_servo_2 = 0;
 /*
 NOTE
 TO CONVERT DEGREES TO PULSE LENGTH, USE THE FOLLOWING
@@ -159,7 +159,7 @@ void loop()
         msg_servo_1 = millis();
         lcd.clear();
         lcd.setCursor(0, 0);
-        lcd.print("Servo Values:")
+        lcd.print("Servo Values:");
     }
     if (millis() > msg_servo_2 + SERVO_INTERVAL_NUMBERS)
     {
