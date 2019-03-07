@@ -5,6 +5,9 @@
  *  Adapted by Jose Rondon and group 6
  =================================================================================================== */
 
+#define SERVO_INTERVAL_WORDS 2500
+#define SERVO_INTERVAL_NUMBERS 5000
+
 #include <Wire.h>
 #include <Adafruit_PWMServoDriver.h>
 #include <LiquidCrystal.h>
@@ -28,6 +31,30 @@ const int GATE_PIN_5 = A14;
 const int GATE_PIN_6 = A15;
 const int JOYSTICK_1_1 = A8; // slider variable connecetd to analog pin 0
 const int JOYSTICK_1_2 = A9; // slider variable connecetd to analog pin 1
+
+// Base Parameters
+const int LINKAGE_LENGTH = 90;
+const int SERVO_ARM_LENGTH = 35;
+const float BASE_POSITIONS[6][3] = {
+    {83.5, 32.81, 0},
+    {-13.3, 88.72, 0},
+    {-70.17, 55.91, 0},
+    {-70.17, -55.91, 0},
+    {-13.33, -88.71, 0},
+    {83.5, -32.81, 0}};
+const float PLATFORM_POSITIONS[6][3] = {
+    {42.7, 61.95, 0},
+    {32.3, 67.95, 0},
+    {-75, 6, 0},
+    {-75, -6, 0},
+    {32.3, -67.95, 0},
+    {42.7, -61.95, 0}};
+
+// Base Angles
+float theta = 0.0;
+float phi = 0.0;
+float psi = 0.0;
+
 // Reading
 int gate_reading_1 = 0;
 int gate_reading_2 = 0;
@@ -43,7 +70,9 @@ bool keyboard_off = false;
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
 // Initializing lCD
 LiquidCrystal lcd(19, 18, 47, 49, 51, 53); /// REGISTER SELECT PIN,ENABLE PIN,D4 PIN,D5 PIN, D6 PIN, D7 PIN
-
+// Message Timing
+unsigned long msg_servo_1 = 0;
+unsigner long msg_servo_2 = 0;
 /*
 NOTE
 TO CONVERT DEGREES TO PULSE LENGTH, USE THE FOLLOWING
@@ -80,11 +109,11 @@ void setup()
 }
 
 void loop()
-{   
+{
     keyboard_off = JoysticksOn();
     // Check keyboard string
     // ServoValues();
-    if (Serial.available() > 0 && !keyboard_off)// Joystick input is not detected)
+    if (Serial.available() > 0 && !keyboard_off) // Joystick input is not detected)
     {
         input = Serial.readString();
         Serial.println(input);
@@ -116,9 +145,23 @@ void loop()
             ReadAllPhotocells();
             break;
         }
-    } else {
+    }
+    else
+    {
         // Manual control
         ManualControl();
+    }
+    if (millis() > msg_servo_1 + SERVO_INTERVAL_WORDS)
+    {
+        msg_servo_1 = millis();
+        lcd.clear();
+        lcd.setCursor(0, 0);
+        lcd.print("Servo Values:")
+    }
+    if (millis() > msg_servo_2 + SERVO_INTERVAL_NUMBERS)
+    {
+        msg_servo_2 = millis();
+        ServoValues();
     }
     input = "";
     delay(40); // servos cannot receive pwm changes any quicker than this
@@ -126,11 +169,7 @@ void loop()
 
 void ServoValues()
 {
-    int stringLength = 0;
-    int curMillis = millis();
-    int prevMillis = 0;
-    // lcd.print("Servo values");
-    // lcd.setCursor(0, 1);
+    lcd.clear();
     lcd.setCursor(0, 0);
     lcd.print("[");
     for (int i = 0; i < 3; i++)
@@ -175,7 +214,6 @@ void SetServos(int motor_1, int motor_2, int motor_3, int motor_4, int motor_5, 
         }
         pwm.setPWM(i + 1, 0, servo_settings[i]); // added +1 to match PWM port numbering (pins 1..6 used)
     }
-    ServoValues();
 }
 
 void SolveMaze()
@@ -270,5 +308,14 @@ bool JoysticksOn()
     {
         joystick_on = true;
     }
+    else
+    {
+        joystick_on = false;
+    }
     return joystick_on;
+}
+
+// ServoAngles(&alphas, ) <- pass in variables as such
+void ServoAngles(float *alphas, int alpha_size, float *base_coord, int base_size, float *platform_coord, int platform_size, float Beta)
+{
 }
