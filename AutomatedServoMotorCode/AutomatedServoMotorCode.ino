@@ -5,9 +5,6 @@
  *  Adapted by Jose Rondon and group 6
  =================================================================================================== */
 
-#define SERVO_INTERVAL_WORDS 2500
-#define SERVO_INTERVAL_NUMBERS 5000
-
 #include <Wire.h>
 #include <Adafruit_PWMServoDriver.h>
 #include <LiquidCrystal.h>
@@ -18,6 +15,9 @@
 const int SERVOMINS[6] = {160, 165, 105, 130, 135, 155};
 const int SERVOMAXS[6] = {500, 540, 370, 430, 470, 500};
 const int SERVOCHG = 5;
+const int SERVO_INTERVAL_WORDS = 2500;
+const int SERVO_INTERVAL_NUMBERS = 5000;
+
 // Gate Reading Limit
 const int GATE_LIMIT = 100;
 
@@ -50,13 +50,17 @@ const float PLATFORM_POSITIONS[6][3] = {
     {32.3, -67.95, 0.0},
     {42.7, -61.95, 0.0}};
 
-const float BETA[3] = {0.0,120.0,240.0}
+const float BETA[3] = {0.0, 120.0, 240.0}
 
 // Angles
 float theta = 0.0;
 float phi = 0.0;
 float psi = 0.0;
 
+// Home height Vector (Also zt)
+float home_height[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+// Runs (xp-xb)^2 and (yp-yb)^2
+float base_platform_deltas[6][2] = {{0.0, 0.0}, {0.0, 0.0}, {0.0, 0.0}, {0.0, 0.0}, {0.0, 0.0}, {0.0, 0.0}};
 
 // Reading
 int gate_reading_1 = 0;
@@ -104,6 +108,11 @@ void setup()
         mid_1 = (SERVOMINS[i] + SERVOMAXS[i]);
         mid_2 = mid_1 / 2;
         servo_settings[i] = mid_2;
+    }
+    for (int i = 0; i < 6; i++)
+    {
+        base_platform_deltas[i][0] = pow((BASE_POSITIONS[i][0] * PLATFORM_POSITIONS[i][0]), 2); // (xp-xb)^2
+        base_platform_deltas[i][1] = pow((BASE_POSITIONS[i][1] * PLATFORM_POSITIONS[i][1]), 2); // (xp-xb)^2
     }
     ServoValues();
     SetServos(servo_settings[0], servo_settings[1], servo_settings[2], servo_settings[3], servo_settings[4], servo_settings[5]);
@@ -291,7 +300,17 @@ void ReadAllPhotocells()
 
 void ManualControl()
 {
+    static float rotation_matrix[3][3]{{0.0,0.0,0.0}, {0.0,0.0,0.0}, {0.0,0.0,0.0}};
     ReadJoysticks();
+    theta = DegToRad(theta);
+    phi = DegToRad(phi);
+    psi = DegToRad(psi);
+    CalcRotation(rotation_matrix,psi,theta,phi);
+    for (int i = 0; i < 6; i++)
+    {
+        home_height[i] = sqrt((LINKAGE_LENGTH * LINKAGE_LENGTH + SERVO_ARM_LENGTH * SERVO_ARM_LENGTH - base_platform_deltas[i][0] - base_platform_deltas[i][1] - PLATFORM_POSITIONS[i][2]));
+    }
+
 }
 
 void ReadJoysticks()
@@ -321,4 +340,22 @@ bool JoysticksOn()
 // ServoAngles(&alphas, ) <- pass in variables as such
 void ServoAngles(float *alphas, int alpha_size, float *base_coord, int base_size, float *platform_coord, int platform_size, float Beta)
 {
+}
+
+float DegToRad(float deg)
+{
+    return (deg * 71) / 4068;
+}
+
+// Make sure angles are in radians
+void CalcRotation(float *rot, float psi, float theta, float phi) {
+    rot[0][0] = cos(psi)*cos(theta);
+    rot[0][1] = -sin(psi)*cos(phi)+cos(psi)*sin(theta)*sin(phi);
+    rot[0][2] = sin(psi)*sin(phi)+cos(psi)*sin(theta)*cos(phi);
+    rot[1][0] = sin(psi)*cos(theta);
+    rot[1][1] = cos(psi)*cos(phi)+sin(psi)*sin(theta)*sin(phi);
+    rot[1][2] = -cos(psi)*sin(phi)+sin(psi)*sin(theta)*cos(phi);
+    rot[2][0] = -sin(theta);
+    rot[2][1] = cos(theta)*sin(phi);
+    rot[2][2] = cos(theta)*cos(phi);
 }
