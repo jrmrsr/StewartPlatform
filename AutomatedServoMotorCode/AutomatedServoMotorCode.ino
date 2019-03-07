@@ -50,7 +50,8 @@ const float PLATFORM_POSITIONS[6][3] = {
     {32.3, -67.95, 0.0},
     {42.7, -61.95, 0.0}};
 
-const float BETA[3] = {0.0, 120.0, 240.0}
+const float BETA[3] = {0.0, 120.0, 240.0};
+const int MATRIX_ROWS = 3;
 
 // Angles
 float theta = 0.0;
@@ -79,7 +80,7 @@ Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
 LiquidCrystal lcd(19, 18, 47, 49, 51, 53); /// REGISTER SELECT PIN,ENABLE PIN,D4 PIN,D5 PIN, D6 PIN, D7 PIN
 // Message Timing
 unsigned long msg_servo_1 = 0;
-unsigner long msg_servo_2 = 0;
+unsigned long msg_servo_2 = 0;
 /*
 NOTE
 TO CONVERT DEGREES TO PULSE LENGTH, USE THE FOLLOWING
@@ -168,7 +169,7 @@ void loop()
         msg_servo_1 = millis();
         lcd.clear();
         lcd.setCursor(0, 0);
-        lcd.print("Servo Values:")
+        lcd.print("Servo Values:");
     }
     if (millis() > msg_servo_2 + SERVO_INTERVAL_NUMBERS)
     {
@@ -300,17 +301,17 @@ void ReadAllPhotocells()
 
 void ManualControl()
 {
-    static float rotation_matrix[3][3]{{0.0,0.0,0.0}, {0.0,0.0,0.0}, {0.0,0.0,0.0}};
+    // index is w * h
+    static double rotation_matrix[9] = {0.0, 0.0, 0.0,0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
     ReadJoysticks();
     theta = DegToRad(theta);
     phi = DegToRad(phi);
     psi = DegToRad(psi);
-    CalcRotation(rotation_matrix,psi,theta,phi);
+    CalcRotation(rotation_matrix, psi, theta, phi);
     for (int i = 0; i < 6; i++)
     {
         home_height[i] = sqrt((LINKAGE_LENGTH * LINKAGE_LENGTH + SERVO_ARM_LENGTH * SERVO_ARM_LENGTH - base_platform_deltas[i][0] - base_platform_deltas[i][1] - PLATFORM_POSITIONS[i][2]));
     }
-
 }
 
 void ReadJoysticks()
@@ -338,8 +339,9 @@ bool JoysticksOn()
 }
 
 // ServoAngles(&alphas, ) <- pass in variables as such
-void ServoAngles(float *alphas, int alpha_size, float *base_coord, int base_size, float *platform_coord, int platform_size, float Beta)
+void ServoAngles(float *alphas, int alpha_size, float *base_coord, float *platform_coord, float Beta)
 {
+    // static float li =
 }
 
 float DegToRad(float deg)
@@ -348,14 +350,39 @@ float DegToRad(float deg)
 }
 
 // Make sure angles are in radians
-void CalcRotation(float *rot, float psi, float theta, float phi) {
-    rot[0][0] = cos(psi)*cos(theta);
-    rot[0][1] = -sin(psi)*cos(phi)+cos(psi)*sin(theta)*sin(phi);
-    rot[0][2] = sin(psi)*sin(phi)+cos(psi)*sin(theta)*cos(phi);
-    rot[1][0] = sin(psi)*cos(theta);
-    rot[1][1] = cos(psi)*cos(phi)+sin(psi)*sin(theta)*sin(phi);
-    rot[1][2] = -cos(psi)*sin(phi)+sin(psi)*sin(theta)*cos(phi);
-    rot[2][0] = -sin(theta);
-    rot[2][1] = cos(theta)*sin(phi);
-    rot[2][2] = cos(theta)*cos(phi);
+void CalcRotation(double rot[], float psi, float theta, float phi)
+{
+    // index as width * row + col
+    rot[(3*0+0)] = cos(psi) * cos(theta);
+    rot[(3*0+1)] = -sin(psi) * cos(phi) + cos(psi) * sin(theta) * sin(phi);
+    rot[(3+0+2)] = sin(psi) * sin(phi) + cos(psi) * sin(theta) * cos(phi);
+    rot[(3*1+0)] = sin(psi) * cos(theta);
+    rot[(3*1+1)] = cos(psi) * cos(phi) + sin(psi) * sin(theta) * sin(phi);
+    rot[(3*1+2)] = -cos(psi) * sin(phi) + sin(psi) * sin(theta) * cos(phi);
+    rot[(3*2+0)] = -sin(theta);
+    rot[(3*2+1)] = cos(theta) * sin(phi);
+    rot[(3*2+2)] = cos(theta) * cos(phi);
+}
+
+// What is q or p?
+void MatrixMultRotation(float *rot, float *platform, float *result)
+{
+    for (int i = 0; i < 3; i++)
+    {
+        for (int j = 0; j < 3; j++)
+        {
+            result[i] += rot[(3*i+j)] * platform[j];
+        }
+    }
+}
+
+void MatrixSummation(float M1[], float M2[], int rows, int col, float results[])
+{
+    for (int i = 0; i < rows; i++)
+    {
+        for (int j = 0; j < col; j++)
+        {
+            results[((col+1)*i+j)] += M1[((col+1)*i+j)] + M2[((col+1)*i+j)];
+        }
+    }
 }
