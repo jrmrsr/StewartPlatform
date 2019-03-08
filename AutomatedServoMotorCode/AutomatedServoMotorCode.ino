@@ -54,12 +54,12 @@ const float BETA[3] = {0.0, 120.0, 240.0};
 const int MATRIX_ROWS = 3;
 
 // Angles
-float theta = 0.0;
-float phi = 0.0;
-float psi = 0.0;
+float theta = 15.0;
+float phi = 15.0;
+float psi = 15.0;
 
 // Home height Vector (Also zt)
-float home_height[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+double home_height[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 // Runs (xp-xb)^2 and (yp-yb)^2
 float base_platform_deltas[6][2] = {{0.0, 0.0}, {0.0, 0.0}, {0.0, 0.0}, {0.0, 0.0}, {0.0, 0.0}, {0.0, 0.0}};
 float alphas[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
@@ -90,6 +90,20 @@ from https://learn.adafruit.com/16-channel-pwm-servo-driver/using-the-adafruit-l
 int servo_settings[6] = {0, 0, 0, 0, 0, 0}; // PWM var
 String input = "0";
 
+void ManualControl();
+void ServoValues();
+void SetServos(int motor_1, int motor_2, int motor_3, int motor_4, int motor_5, int motor_6);
+void SolveMaze();
+void ReadAllPhotocells();
+void ReadJoysticks();
+bool JoysticksOn();
+double ServoAngle(bool *possible, double base_x, double base_y, double base_z, double plat_x, double plat_y, double plat_z, double Beta, double rot[]);
+double DegToRad(double deg);
+double RadToDeg(double rad);
+void CalcRotation(double rot[], double psi, double theta, double phi);
+void MatrixMultRotation(double rot[], double platform[], double result[]);
+void MatrixSummation(double M1[], double M2[], int rows, int col, double results[], bool sum);
+
 void setup()
 {
     Serial.begin(9600);    // opens serial port, sets data rate to 9600 bps
@@ -112,15 +126,15 @@ void setup()
     }
     for (int i = 0; i < 6; i++)
     {
-        base_platform_deltas[i][0] = pow((BASE_POSITIONS[i][0] * PLATFORM_POSITIONS[i][0]), 2); // (xp-xb)^2
-        base_platform_deltas[i][1] = pow((BASE_POSITIONS[i][1] * PLATFORM_POSITIONS[i][1]), 2); // (xp-xb)^2
+        base_platform_deltas[i][0] = pow((BASE_POSITIONS[i][0] - PLATFORM_POSITIONS[i][0]), 2); // (xp-xb)^2
+        base_platform_deltas[i][1] = pow((BASE_POSITIONS[i][1] - PLATFORM_POSITIONS[i][1]), 2); // (xp-xb)^2
     }
     ServoValues();
     SetServos(servo_settings[0], servo_settings[1], servo_settings[2], servo_settings[3], servo_settings[4], servo_settings[5]);
     // SetServos(350, 350, 350, 350, 350, 350);
     Serial.println("Would you like me to solve this maze for you? (y/n/c)");
     //Test Code;
-    for (int i = 0; i < 10; i++)
+    for (int i = 0; i < 1; i++)
     {
         ManualControl();
     }
@@ -167,7 +181,7 @@ void loop()
     else
     {
         // Manual control
-        ManualControl();
+        // ManualControl();
     }
     if (millis() > msg_servo_1 + SERVO_INTERVAL_WORDS)
     {
@@ -320,12 +334,22 @@ void ManualControl()
     {
         // home_height[i] is also zt[i]
         home_height[i] = sqrt((LINKAGE_LENGTH * LINKAGE_LENGTH + SERVO_ARM_LENGTH * SERVO_ARM_LENGTH - base_platform_deltas[i][0] - base_platform_deltas[i][1] - PLATFORM_POSITIONS[i][2]));
+        Serial.print("LINKAGE_LENGTH: ");
+        Serial.println(LINKAGE_LENGTH);
+        Serial.print("SERVO_ARM_LENGTH: ");
+        Serial.println(SERVO_ARM_LENGTH);
+        Serial.print("base_platform_deltas: ");
+        Serial.println(base_platform_deltas[i][0]);
+        Serial.print("base_platform_deltas: ");
+        Serial.println(base_platform_deltas[i][1]);
+        Serial.print("PLATFORM_POSITIONS: ");
+        Serial.println(PLATFORM_POSITIONS[i][2]);
     }
     // for loop to calc servo angles based on 1-d coord array
     // ServoAngle(alpha[2], base_coord[i],base_coord[i+1],base_coord[i+2] ...) <- to match matlab code
     // in loop, i+=3;
     Serial.print("Home Height Values: [ ");
-    for (int i = 0; i < 3; i++)
+    for (int i = 0; i < 6; i++)
     {
         Serial.print(home_height[i]);
         Serial.print(" ");
@@ -358,7 +382,7 @@ bool JoysticksOn()
 }
 
 // ServoAngles(&alphas, ) <- pass in variables as such
-void ServoAngles(double alphas[], double base_x, double base_y, double base_z, double plat_x, double plat_y, double plat_z, double Beta, double rot[])
+double ServoAngle(bool *possible, double base_x, double base_y, double base_z, double plat_x, double plat_y, double plat_z, double Beta, double rot[])
 {
     static double li[3] = {0.0, 0.0, 0.0};
     static double qi[3] = {0.0, 0.0, 0.0};
@@ -366,12 +390,11 @@ void ServoAngles(double alphas[], double base_x, double base_y, double base_z, d
     static double mult_result[3] = {0.0, 0.0, 0.0};
     static double sum_result[3] = {0.0, 0.0, 0.0};
     static double sub_result[3] = {0.0, 0.0, 0.0};
-    static double length_possible[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-    static double lsquared = 0.0, L = 0.0, M = 0.0, N = 0.0;
+    static double length_possible = 0.0, lsquared = 0.0, L = 0.0, M = 0.0, N = 0.0, alpha = 0.0;
     static double base_coord[3] = {base_x, base_y, base_z};
     static double platform_coord[3] = {plat_x, plat_y, plat_z};
 
-    static bool possible = true;
+    *possible = true;
     for (int i = 0; i < 6; i++)
     {
         base_to_center[2] = home_height[i];
@@ -381,33 +404,39 @@ void ServoAngles(double alphas[], double base_x, double base_y, double base_z, d
         MatrixSummation(mult_result, base_to_center, 1, 3, qi, true);
         MatrixSummation(qi, base_coord, 1, 3, li, false);
 
-        length_possible[i] += (li[i] * li[i]);
+        // length_possible[i] += (li[i] * li[i]);
     }
     lsquared = (qi[1] * qi[1] + qi[2] * qi[2] + qi[3] * qi[3]) + (base_x * base_x + base_y * base_y + base_z * base_z) - 2 * (qi[1] * base_x + qi[2] * base_y + qi[3] * base_z);
     L = lsquared - (LINKAGE_LENGTH * LINKAGE_LENGTH - SERVO_ARM_LENGTH * SERVO_ARM_LENGTH);
     M = 2 * SERVO_ARM_LENGTH * (qi[3] - base_z);
     N = 2 * SERVO_ARM_LENGTH * (cos(DegToRad(Beta)) * (qi[1] - base_x) + sin(DegToRad(Beta)) * (qi[2] - base_y));
     // Check whether servo angles are possible
-    while (possible == true)
+
+    length_possible = L / sqrt(M * M + N * N);
+    if (abs(length_possible) >= 1)
     {
-        int i = 0;
-        if (abs(length_possible[i]) >= 1)
-        {
-            possible = false;
-            Serial.println("Angles are not possible");
-            return;
-        }
-        i++;
+        possible = false;
+        Serial.println("Angles are not possible");
+        return;
     }
+    alpha = RadToDeg(asin(length_possible) - atan(N / M));
+    return alpha;
 }
 
-float DegToRad(float deg)
+double DegToRad(double deg)
 {
-    return (deg * 71) / 4068;
+    static double rad = 0.0;
+    rad = (deg * 71) / 4068;
+    return rad;
+}
+
+double RadToDeg(double rad)
+{
+    return (rad * 4068) / 71;
 }
 
 // Make sure angles are in radians
-void CalcRotation(double rot[], float psi, float theta, float phi)
+void CalcRotation(double rot[], double psi, double theta, double phi)
 {
     // index as width * row + col
     rot[(3 * 0 + 0)] = cos(psi) * cos(theta);
