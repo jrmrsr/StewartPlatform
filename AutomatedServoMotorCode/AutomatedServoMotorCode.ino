@@ -36,7 +36,7 @@ const int JOYSTICK_1_2 = A9; // slider variable connecetd to analog pin 1
 const int LINKAGE_LENGTH = 90;   // s in matlab
 const int SERVO_ARM_LENGTH = 35; // a in matlab
 const float BASE_POSITIONS[6][3] = {
-    {83.5, 32.81, .0},
+    {83.5, 32.81, 0.0},
     {-13.3, 88.72, 0.0},
     {-70.17, 55.91, 0.0},
     {-70.17, -55.91, 0.0},
@@ -62,6 +62,7 @@ float psi = 15.0;
 double home_height[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 // Runs (xp-xb)^2 and (yp-yb)^2
 float base_platform_deltas[6][2] = {{0.0, 0.0}, {0.0, 0.0}, {0.0, 0.0}, {0.0, 0.0}, {0.0, 0.0}, {0.0, 0.0}};
+// indexed from motor 1-6
 float alphas[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 // Reading
 int gate_reading_1 = 0;
@@ -127,7 +128,7 @@ void setup()
     for (int i = 0; i < 6; i++)
     {
         base_platform_deltas[i][0] = pow((BASE_POSITIONS[i][0] - PLATFORM_POSITIONS[i][0]), 2); // (xp-xb)^2
-        base_platform_deltas[i][1] = pow((BASE_POSITIONS[i][1] - PLATFORM_POSITIONS[i][1]), 2); // (xp-xb)^2
+        base_platform_deltas[i][1] = pow((BASE_POSITIONS[i][1] - PLATFORM_POSITIONS[i][1]), 2); // (yp-yb)^2
     }
     ServoValues();
     SetServos(servo_settings[0], servo_settings[1], servo_settings[2], servo_settings[3], servo_settings[4], servo_settings[5]);
@@ -325,6 +326,10 @@ void ManualControl()
 {
     // index is w * h
     static double rotation_matrix[9] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+    bool possible = true;
+    int c = 0; // Counter Variable
+    int c_beta = 0; // Counter for Beta
+
     ReadJoysticks();
     theta = DegToRad(theta);
     phi = DegToRad(phi);
@@ -334,16 +339,17 @@ void ManualControl()
     {
         // home_height[i] is also zt[i]
         home_height[i] = sqrt((LINKAGE_LENGTH * LINKAGE_LENGTH + SERVO_ARM_LENGTH * SERVO_ARM_LENGTH - base_platform_deltas[i][0] - base_platform_deltas[i][1] - PLATFORM_POSITIONS[i][2]));
-        Serial.print("LINKAGE_LENGTH: ");
-        Serial.println(LINKAGE_LENGTH);
-        Serial.print("SERVO_ARM_LENGTH: ");
-        Serial.println(SERVO_ARM_LENGTH);
-        Serial.print("base_platform_deltas: ");
-        Serial.println(base_platform_deltas[i][0]);
-        Serial.print("base_platform_deltas: ");
-        Serial.println(base_platform_deltas[i][1]);
-        Serial.print("PLATFORM_POSITIONS: ");
-        Serial.println(PLATFORM_POSITIONS[i][2]);
+        // Debug Code
+        // Serial.print("LINKAGE_LENGTH: ");
+        // Serial.println(LINKAGE_LENGTH);
+        // Serial.print("SERVO_ARM_LENGTH: ");
+        // Serial.println(SERVO_ARM_LENGTH);
+        // Serial.print("base_platform_deltas: ");
+        // Serial.println(base_platform_deltas[i][0]);
+        // Serial.print("base_platform_deltas: ");
+        // Serial.println(base_platform_deltas[i][1]);
+        // Serial.print("PLATFORM_POSITIONS: ");
+        // Serial.println(PLATFORM_POSITIONS[i][2]);
     }
     // for loop to calc servo angles based on 1-d coord array
     // ServoAngle(alpha[2], base_coord[i],base_coord[i+1],base_coord[i+2] ...) <- to match matlab code
@@ -355,6 +361,19 @@ void ManualControl()
         Serial.print(" ");
     }
     Serial.println("]");
+    Serial.print("Alphas");
+    for (int i = 0; i < 6; i++)
+    {
+        
+        alphas[i] = ServoAngle(&possible, BASE_POSITIONS[i][c], BASE_POSITIONS[i][(c+1)], BASE_POSITIONS[i][c+2], PLATFORM_POSITIONS[i][c], PLATFORM_POSITIONS[i][(c+1)], PLATFORM_POSITIONS[i][c+2], BETA[c_beta],rotation_matrix);
+        c = 0;
+        if((i%2) == 0) {
+            c_beta += 1;
+        }
+        Serial.print(alphas[i]);
+        possible=true;
+    }
+    Serial.println("");
 }
 
 void ReadJoysticks()
