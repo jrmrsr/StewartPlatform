@@ -34,29 +34,29 @@ const int JOYSTICK_1_2 = A9; // slider variable connecetd to analog pin 1
 
 // Base Parameters
 const int LINKAGE_LENGTH = 90;   // s in matlab
-const int SERVO_ARM_LENGTH = 35; // a in matlab
-const float BASE_POSITIONS[6][3] = {
-    {83.5, 32.81, 0.0},
-    {-13.3, 88.72, 0.0},
-    {-70.17, 55.91, 0.0},
-    {-70.17, -55.91, 0.0},
-    {-13.33, -88.71, 0.0},
-    {83.5, -32.81, 0.0}};
-const float PLATFORM_POSITIONS[6][3] = {
-    {42.7, 61.95, 0.0},
-    {32.3, 67.95, 0.0},
-    {-75.0, 6.0, 0.0},
-    {-75.0, -6.0, 0.0},
-    {32.3, -67.95, 0.0},
-    {42.7, -61.95, 0.0}};
+const int SERVO_ARM_LENGTH = 24; // a in matlab
+const double BASE_POSITIONS[6][3] = {
+    {83.5, 33.4, 0.0},
+    {-12.82, 89.01, 0.0},
+    {-70.68, 55.61, 0.0},
+    {-70.68, -55.61, 0.0},
+    {-12.82, -89.01, 0.0},
+    {83.5, -33.4, 0.0}};
+const double PLATFORM_POSITIONS[6][3] = {
+    {65.01, 6, 0.0},
+    {-38.49, 66.67, 0.0},
+    {-48.89, 60.67, 0.0},
+    {-48.89, -60.67, 0.0},
+    {-38.49, -66.67, 0.0},
+    {66.6, -6, 0.0}};
 
-const float BETA[3] = {0.0, 120.0, 240.0};
+const double BETA[6] = {0.0, 120.0, 120.0, 240.0, 240.0, 0.0};
 const int MATRIX_ROWS = 3;
 
 // Angles
 float theta = 15.0;
-float phi = 15.0;
-float psi = 15.0;
+float phi = 0;
+float psi = 0;
 
 // Home height Vector (Also zt)
 double home_height[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
@@ -127,8 +127,8 @@ void setup()
     }
     for (int i = 0; i < 6; i++)
     {
-        base_platform_deltas[i][0] = pow((BASE_POSITIONS[i][0] - PLATFORM_POSITIONS[i][0]), 2); // (xp-xb)^2
-        base_platform_deltas[i][1] = pow((BASE_POSITIONS[i][1] - PLATFORM_POSITIONS[i][1]), 2); // (yp-yb)^2
+        base_platform_deltas[i][0] = pow((PLATFORM_POSITIONS[i][0] - BASE_POSITIONS[i][0]), 2); // (xp-xb)^2
+        base_platform_deltas[i][1] = pow((PLATFORM_POSITIONS[i][1] - BASE_POSITIONS[i][1]), 2); // (yp-yb)^2
     }
     ServoValues();
     SetServos(servo_settings[0], servo_settings[1], servo_settings[2], servo_settings[3], servo_settings[4], servo_settings[5]);
@@ -325,10 +325,9 @@ void ReadAllPhotocells()
 void ManualControl()
 {
     // index is w * h
-    static double rotation_matrix[9] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+    double rotation_matrix[9] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
     bool possible = true;
     int c = 0; // Counter Variable
-    int c_beta = 0; // Counter for Beta
 
     ReadJoysticks();
     theta = DegToRad(theta);
@@ -362,16 +361,15 @@ void ManualControl()
     }
     Serial.println("]");
     Serial.print("Alphas");
+
+    // So the matlab code uses weird indexing for Beta, so we are going to
     for (int i = 0; i < 6; i++)
     {
-        
-        alphas[i] = ServoAngle(&possible, BASE_POSITIONS[i][c], BASE_POSITIONS[i][(c+1)], BASE_POSITIONS[i][c+2], PLATFORM_POSITIONS[i][c], PLATFORM_POSITIONS[i][(c+1)], PLATFORM_POSITIONS[i][c+2], BETA[c_beta],rotation_matrix);
+
+        alphas[i] = ServoAngle(&possible, BASE_POSITIONS[i][c], BASE_POSITIONS[i][(c + 1)], BASE_POSITIONS[i][c + 2], PLATFORM_POSITIONS[i][c], PLATFORM_POSITIONS[i][(c + 1)], PLATFORM_POSITIONS[i][c + 2], BETA[i], rotation_matrix, home_height[i]);
         c = 0;
-        if((i%2) == 0) {
-            c_beta += 1;
-        }
         Serial.print(alphas[i]);
-        possible=true;
+        possible = true;
     }
     Serial.println("");
 }
@@ -401,57 +399,83 @@ bool JoysticksOn()
 }
 
 // ServoAngles(&alphas, ) <- pass in variables as such
-double ServoAngle(bool *possible, double base_x, double base_y, double base_z, double plat_x, double plat_y, double plat_z, double Beta, double rot[])
+double ServoAngle(bool *possible, double base_x, double base_y, double base_z, double plat_x, double plat_y, double plat_z, double Beta, double rot[], double home_height)
 {
-    static double li[3] = {0.0, 0.0, 0.0};
-    static double qi[3] = {0.0, 0.0, 0.0};
-    static double base_to_center[3] = {0.0, 0.0, 0.0};
-    static double mult_result[3] = {0.0, 0.0, 0.0};
-    static double sum_result[3] = {0.0, 0.0, 0.0};
-    static double sub_result[3] = {0.0, 0.0, 0.0};
-    static double length_possible = 0.0, lsquared = 0.0, L = 0.0, M = 0.0, N = 0.0, alpha = 0.0;
-    static double base_coord[3] = {base_x, base_y, base_z};
-    static double platform_coord[3] = {plat_x, plat_y, plat_z};
+    double li[3] = {0.0, 0.0, 0.0};
+    double qi[3] = {0.0, 0.0, 0.0};
+    double base_to_center[3] = {0.0, 0.0, 0.0};
+    double mult_result[3] = {0.0, 0.0, 0.0};
+    double sum_result[3] = {0.0, 0.0, 0.0};
+    double sub_result[3] = {0.0, 0.0, 0.0};
+    double length_possible = 0.0, lsquared = 0.0, L = 0.0, M = 0.0, N = 0.0, alpha = 0.0;
+    double base_coord[3] = {base_x, base_y, base_z};
+    double platform_coord[3] = {plat_x, plat_y, plat_z};
 
     *possible = true;
-    for (int i = 0; i < 6; i++)
+    base_to_center[2] = home_height;
+
+    MatrixMultRotation(rot, platform_coord, mult_result);
+    // Note, subtraction is not commutative, order matters
+    MatrixSummation(mult_result, base_to_center, 1, 3, qi, true);
+    MatrixSummation(qi, base_coord, 1, 3, li, false);
+
+    Serial.print("qi for ");
+    Serial.print(": ");
+    Serial.print(qi[0]);Serial.print(qi[1]);
+    Serial.print(qi[2]);
+    
+
+    for (int j = 0; j < 3; j++)
     {
-        base_to_center[2] = home_height[i];
-
-        MatrixMultRotation(rot, platform_coord, mult_result);
-        // Note, subtraction is not commutative, order matters
-        MatrixSummation(mult_result, base_to_center, 1, 3, qi, true);
-        MatrixSummation(qi, base_coord, 1, 3, li, false);
-
-        // length_possible[i] += (li[i] * li[i]);
+        mult_result[j] = 0.0;
+        sum_result[j] = 0.0;
+        sub_result[j] = 0.0;
     }
-    lsquared = (qi[1] * qi[1] + qi[2] * qi[2] + qi[3] * qi[3]) + (base_x * base_x + base_y * base_y + base_z * base_z) - 2 * (qi[1] * base_x + qi[2] * base_y + qi[3] * base_z);
-    L = lsquared - (LINKAGE_LENGTH * LINKAGE_LENGTH - SERVO_ARM_LENGTH * SERVO_ARM_LENGTH);
-    M = 2 * SERVO_ARM_LENGTH * (qi[3] - base_z);
-    N = 2 * SERVO_ARM_LENGTH * (cos(DegToRad(Beta)) * (qi[1] - base_x) + sin(DegToRad(Beta)) * (qi[2] - base_y));
+
+    lsquared = ((qi[0] * qi[0]) + (qi[1] * qi[1]) + (qi[2] * qi[2])) + ((base_x * base_x) + (base_y * base_y) + (base_z * base_z)) - 2 * ((qi[0] * base_x) + (qi[1] * base_y) + (qi[2] * base_z));
+    L = lsquared - ((LINKAGE_LENGTH * LINKAGE_LENGTH) - (SERVO_ARM_LENGTH * SERVO_ARM_LENGTH));
+    M = 2 * SERVO_ARM_LENGTH * (qi[2] - base_z);
+    N = 2 * SERVO_ARM_LENGTH * ((cos(DegToRad(Beta)) * (qi[0] - base_x)) + (sin(DegToRad(Beta)) * (qi[1] - base_y)));
+
+    // Debug Code
+    Serial.print("lsquared: ");
+    Serial.println(lsquared);
+    Serial.print("M: ");
+    Serial.println(M);
+    Serial.print("N: ");
+    Serial.println(N);
+    Serial.print("L: ");
+    Serial.println(L);
+
     // Check whether servo angles are possible
 
-    length_possible = L / sqrt(M * M + N * N);
+    length_possible = L / (sqrt((M * M + N * N)));
+    Serial.print("Length Possible: ");
+    Serial.println(abs(length_possible));
     if (abs(length_possible) >= 1)
     {
-        possible = false;
+        *possible = false;
         Serial.println("Angles are not possible");
         return;
     }
-    alpha = RadToDeg(asin(length_possible) - atan(N / M));
+    alpha = RadToDeg((asin(length_possible) - atan((N / M))));
+    Serial.print("Alpha: ");
+    Serial.println(alpha);
     return alpha;
 }
 
 double DegToRad(double deg)
 {
-    static double rad = 0.0;
-    rad = (deg * 71) / 4068;
+    double rad = 0.0;
+    rad = (deg * 1000) / 57296;
     return rad;
 }
 
 double RadToDeg(double rad)
 {
-    return (rad * 4068) / 71;
+    double deg = 0.0;
+    deg = (rad * 57296) / 1000;
+    return deg;
 }
 
 // Make sure angles are in radians
@@ -460,7 +484,7 @@ void CalcRotation(double rot[], double psi, double theta, double phi)
     // index as width * row + col
     rot[(3 * 0 + 0)] = cos(psi) * cos(theta);
     rot[(3 * 0 + 1)] = -sin(psi) * cos(phi) + cos(psi) * sin(theta) * sin(phi);
-    rot[(3 + 0 + 2)] = sin(psi) * sin(phi) + cos(psi) * sin(theta) * cos(phi);
+    rot[(3 * 0 + 2)] = sin(psi) * sin(phi) + cos(psi) * sin(theta) * cos(phi);
     rot[(3 * 1 + 0)] = sin(psi) * cos(theta);
     rot[(3 * 1 + 1)] = cos(psi) * cos(phi) + sin(psi) * sin(theta) * sin(phi);
     rot[(3 * 1 + 2)] = -cos(psi) * sin(phi) + sin(psi) * sin(theta) * cos(phi);
