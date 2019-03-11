@@ -119,16 +119,13 @@ void setup()
     {
         // Changing the order of the servo settings array allows us to change the orientation of the maze if
         // we use delta angle changes for our servos
-        Serial.println(SERVOMINS[i]);
-        Serial.println(SERVOMAXS[i]);
         mid_1 = (SERVOMINS[i] + SERVOMAXS[i]);
         mid_2 = mid_1 / 2;
         servo_settings[i] = mid_2;
-    }
-    for (int i = 0; i < 6; i++)
-    {
         base_platform_deltas[i][0] = pow((PLATFORM_POSITIONS[i][0] - BASE_POSITIONS[i][0]), 2); // (xp-xb)^2
         base_platform_deltas[i][1] = pow((PLATFORM_POSITIONS[i][1] - BASE_POSITIONS[i][1]), 2); // (yp-yb)^2
+        // home_height[i] is also zt[i]
+        home_height[i] = sqrt((LINKAGE_LENGTH * LINKAGE_LENGTH + SERVO_ARM_LENGTH * SERVO_ARM_LENGTH - base_platform_deltas[i][0] - base_platform_deltas[i][1] - PLATFORM_POSITIONS[i][2]));
     }
     ServoValues();
     SetServos(servo_settings[0], servo_settings[1], servo_settings[2], servo_settings[3], servo_settings[4], servo_settings[5]);
@@ -334,11 +331,7 @@ void ManualControl()
     phi = DegToRad(phi);
     psi = DegToRad(psi);
     CalcRotation(rotation_matrix, psi, theta, phi);
-    for (int i = 0; i < 6; i++)
-    {
-        // home_height[i] is also zt[i]
-        home_height[i] = sqrt((LINKAGE_LENGTH * LINKAGE_LENGTH + SERVO_ARM_LENGTH * SERVO_ARM_LENGTH - base_platform_deltas[i][0] - base_platform_deltas[i][1] - PLATFORM_POSITIONS[i][2]));
-    }
+
     // for loop to calc servo angles based on 1-d coord array
     // ServoAngle(alpha[2], base_coord[i],base_coord[i+1],base_coord[i+2] ...) <- to match matlab code
     // in loop, i+=3;
@@ -348,7 +341,6 @@ void ManualControl()
     {
 
         alphas[i] = ServoAngle(&possible, BASE_POSITIONS[i][c], BASE_POSITIONS[i][(c + 1)], BASE_POSITIONS[i][c + 2], PLATFORM_POSITIONS[i][c], PLATFORM_POSITIONS[i][(c + 1)], PLATFORM_POSITIONS[i][c + 2], BETA[i], rotation_matrix, home_height[i]);
-        c = 0;
         possible = true;
     }
 }
