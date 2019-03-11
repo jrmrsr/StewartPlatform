@@ -134,7 +134,7 @@ void setup()
     SetServos(servo_settings[0], servo_settings[1], servo_settings[2], servo_settings[3], servo_settings[4], servo_settings[5]);
     // SetServos(350, 350, 350, 350, 350, 350);
     Serial.println("Would you like me to solve this maze for you? (y/n/c)");
-    //Test Code;
+    //Test Code
     for (int i = 0; i < 1; i++)
     {
         ManualControl();
@@ -338,29 +338,10 @@ void ManualControl()
     {
         // home_height[i] is also zt[i]
         home_height[i] = sqrt((LINKAGE_LENGTH * LINKAGE_LENGTH + SERVO_ARM_LENGTH * SERVO_ARM_LENGTH - base_platform_deltas[i][0] - base_platform_deltas[i][1] - PLATFORM_POSITIONS[i][2]));
-        // Debug Code
-        // Serial.print("LINKAGE_LENGTH: ");
-        // Serial.println(LINKAGE_LENGTH);
-        // Serial.print("SERVO_ARM_LENGTH: ");
-        // Serial.println(SERVO_ARM_LENGTH);
-        // Serial.print("base_platform_deltas: ");
-        // Serial.println(base_platform_deltas[i][0]);
-        // Serial.print("base_platform_deltas: ");
-        // Serial.println(base_platform_deltas[i][1]);
-        // Serial.print("PLATFORM_POSITIONS: ");
-        // Serial.println(PLATFORM_POSITIONS[i][2]);
     }
     // for loop to calc servo angles based on 1-d coord array
     // ServoAngle(alpha[2], base_coord[i],base_coord[i+1],base_coord[i+2] ...) <- to match matlab code
     // in loop, i+=3;
-    Serial.print("Home Height Values: [ ");
-    for (int i = 0; i < 6; i++)
-    {
-        Serial.print(home_height[i]);
-        Serial.print(" ");
-    }
-    Serial.println("]");
-    Serial.print("Alphas");
 
     // So the matlab code uses weird indexing for Beta, so we are going to
     for (int i = 0; i < 6; i++)
@@ -368,10 +349,8 @@ void ManualControl()
 
         alphas[i] = ServoAngle(&possible, BASE_POSITIONS[i][c], BASE_POSITIONS[i][(c + 1)], BASE_POSITIONS[i][c + 2], PLATFORM_POSITIONS[i][c], PLATFORM_POSITIONS[i][(c + 1)], PLATFORM_POSITIONS[i][c + 2], BETA[i], rotation_matrix, home_height[i]);
         c = 0;
-        Serial.print(alphas[i]);
         possible = true;
     }
-    Serial.println("");
 }
 
 void ReadJoysticks()
@@ -419,12 +398,6 @@ double ServoAngle(bool *possible, double base_x, double base_y, double base_z, d
     MatrixSummation(mult_result, base_to_center, 1, 3, qi, true);
     MatrixSummation(qi, base_coord, 1, 3, li, false);
 
-    Serial.print("qi for ");
-    Serial.print(": ");
-    Serial.print(qi[0]);Serial.print(qi[1]);
-    Serial.print(qi[2]);
-    
-
     for (int j = 0; j < 3; j++)
     {
         mult_result[j] = 0.0;
@@ -437,21 +410,8 @@ double ServoAngle(bool *possible, double base_x, double base_y, double base_z, d
     M = 2 * SERVO_ARM_LENGTH * (qi[2] - base_z);
     N = 2 * SERVO_ARM_LENGTH * ((cos(DegToRad(Beta)) * (qi[0] - base_x)) + (sin(DegToRad(Beta)) * (qi[1] - base_y)));
 
-    // Debug Code
-    Serial.print("lsquared: ");
-    Serial.println(lsquared);
-    Serial.print("M: ");
-    Serial.println(M);
-    Serial.print("N: ");
-    Serial.println(N);
-    Serial.print("L: ");
-    Serial.println(L);
-
     // Check whether servo angles are possible
-
     length_possible = L / (sqrt((M * M + N * N)));
-    Serial.print("Length Possible: ");
-    Serial.println(abs(length_possible));
     if (abs(length_possible) >= 1)
     {
         *possible = false;
@@ -459,8 +419,6 @@ double ServoAngle(bool *possible, double base_x, double base_y, double base_z, d
         return;
     }
     alpha = RadToDeg((asin(length_possible) - atan((N / M))));
-    Serial.print("Alpha: ");
-    Serial.println(alpha);
     return alpha;
 }
 
@@ -491,16 +449,8 @@ void CalcRotation(double rot[], double psi, double theta, double phi)
     rot[(3 * 2 + 0)] = -sin(theta);
     rot[(3 * 2 + 1)] = cos(theta) * sin(phi);
     rot[(3 * 2 + 2)] = cos(theta) * cos(phi);
-    Serial.print("Rotation Matrix Values: [ ");
-    for (int i = 0; i < 9; i++)
-    {
-        Serial.print(rot[i]);
-        Serial.print(" ");
-    }
-    Serial.println("]");
 }
 
-// What is q or p?
 void MatrixMultRotation(double rot[], double platform[], double result[])
 {
     for (int i = 0; i < 3; i++)
@@ -510,14 +460,6 @@ void MatrixMultRotation(double rot[], double platform[], double result[])
             result[i] += rot[(3 * i + j)] * platform[j];
         }
     }
-    // For debugging
-    Serial.print("Matrix Multiplication Values: [ ");
-    for (int i = 0; i < 3; i++)
-    {
-        Serial.print(result[i]);
-        Serial.print(" ");
-    }
-    Serial.println("]");
 }
 
 void MatrixSummation(double M1[], double M2[], int rows, int col, double results[], bool sum)
@@ -543,12 +485,4 @@ void MatrixSummation(double M1[], double M2[], int rows, int col, double results
             }
         }
     }
-    // For debugging
-    Serial.print("Matrix Summation/Subtraction Values: [ ");
-    for (int i = 0; i < 3; i++)
-    {
-        Serial.print(results[i]);
-        Serial.print(" ");
-    }
-    Serial.println("]");
 }
