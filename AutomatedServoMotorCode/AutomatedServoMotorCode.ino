@@ -237,7 +237,7 @@ void ServoValues()
 }
 
 // Takes in motor angle in degrees and then returns an array of PWM values for motors
-// ADD A DEAD BAND DELAY TO REDUCE JITTER
+// TODO: INCREASE SERVO ANGLE INCREMENTALLY TO GUARD AGAINST WRONG DIRECTIVE
 void SetServos(int motor_1, int motor_2, int motor_3, int motor_4, int motor_5, int motor_6)
 {
     // temp array
@@ -358,6 +358,15 @@ void ManualControl()
 
         alphas[i] = ServoAngle(&possible, BASE_POSITIONS[i][c], BASE_POSITIONS[i][(c + 1)], BASE_POSITIONS[i][c + 2], PLATFORM_POSITIONS[i][c], PLATFORM_POSITIONS[i][(c + 1)], PLATFORM_POSITIONS[i][c + 2], BETA[i], rotation_matrix, home_height[i]);
         possible = true;
+    }
+
+    if (possible)
+    {
+        SetServos(alphas[0], alphas[1], alphas[2], alphas[3], alphas[4], alphas[5]);
+    }
+    else
+    {
+        Serial.println("Cannot move servos to desired angle.")
     }
 }
 
