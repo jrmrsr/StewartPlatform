@@ -18,6 +18,7 @@ const int SERVOCHG = 5;
 const int SERVO_INTERVAL_WORDS = 5000;
 const int SERVO_INTERVAL_NUMBERS = 7000;
 
+
 // Gate Reading Limit
 const int GATE_LIMIT = 100;
 
@@ -29,8 +30,17 @@ const int GATE_PIN_3 = A12;
 const int GATE_PIN_4 = A13;
 const int GATE_PIN_5 = A14;
 const int GATE_PIN_6 = A15;
-const int JOYSTICK_1_1 = A8; // slider variable connecetd to analog pin 0
-const int JOYSTICK_1_2 = A9; // slider variable connecetd to analog pin 1
+const int JOYSTICK_1_1 = A8; // slider variable connecetd to analog pin A8
+const int JOYSTICK_1_2 = A9; // slider variable connecetd to analog pin A9
+const int JOYSTICK_1_SW_pin = 32; // switch output connected to digital pin 32
+const int JOYSTTCK_2_1 = A10 // slider variable connected to analog pin A10
+//const int JOYSTTCK_2_1 = A11 // slider variable connected to analog pin A11
+//const int JOYSTICK_2_SW_pin = 33; // switch output connected to digital pin 33
+//const int JOYSTICK_1_1_X = 493; // MID VALUE FOR X DIRECTION for joystick 1
+//const int JOYSTICK_1_1_Y = 515; // MID VALUE FOR X DIRECTION for joystick 1
+//const int JOYSTICK_2_1_X = 493; // MID VALUE FOR X DIRECTION for joystick 2
+//const int JOYSTICK_2_1_Y = 515; // MID VALUE FOR X DIRECTION for joystick 2
+
 
 // Base Parameters
 const int LINKAGE_LENGTH = 90;   // s in matlab
@@ -73,6 +83,12 @@ int gate_reading_5 = 0;
 int gate_reading_6 = 0;
 int joystick_reading_1_1 = 0;
 int joystick_reading_1_2 = 0;
+int joystick_reading_1_SW_pin = 0;
+int joystick_reading_2_1 = 0;
+int joystick_reading_2_2 = 0;
+int joystick_reading_2_SW_pin = 0;
+int joystick_angle [3] = {0, 0, 0};
+
 bool joystick_on = false;
 bool keyboard_off = false;
 // Initializing PWM Shield
@@ -113,6 +129,16 @@ void setup()
     // TRY TO USE 50 HZ, LOWEST IS 40 HZ
     pwm.setPWMFreq(60); // Analog servos run at ~60 Hz updates
     lcd.begin(16, 2);
+    pinMode(JOYSTICK_1_SW_pin, INPUT);// SET PIN AS INPUT
+    digitalWrite(JOYSTICK_1_SW_pin, HIGH); // ENABLE THE INTERNAL PULLUP ON THE INPUT PIN
+    {
+        case /* constant-expression */:
+            /* code */
+            break;
+    
+        default:
+            break;
+    })
     int mid_1 = 0;
     int mid_2 = 0;
     for (int i = 0; i < 6; i++)
@@ -357,25 +383,84 @@ void ManualControl()
 void ReadJoysticks()
 {
     joystick_reading_1_1 = analogRead(JOYSTICK_1_1);
-    delay(100);
+    delay(40);
     joystick_reading_1_2 = analogRead(JOYSTICK_1_2);
-    Serial.print("Joystick Values 1-6: ");
+    joystick_reading_1_SW_pin = digitalRead(JOYSTICK_1_SW_pin);
+
+    //joystick_reading_2_1 = analogRead(JOYSTICK_2_1);
+    //delay(100);
+    //joystick_reading_2_2 = analogRead(JOYSTICK_2_2);
+    //delay(100);
+    //joystick_reading_2_SW_pin = digitalRead(JOYSTICK_1_SW_pin);
+    //delay(100);
+
+
+    Serial.print("Switch 1:  ");
+    Serial.print(digitalRead(JOYSTICK_1_SW_pin));
+    Serial.print("Joystick 1 Values 1-6: ");
     Serial.print(joystick_reading_1_1);
     Serial.print(",");
     Serial.println(joystick_reading_1_2);
+    //Serial.print("Switch 2:  ");
+    //Serial.print(digitalRead(JOYSTICK_2_SW_pin));
+    //Serial.print("Joystick 2 Values 1-6: ");
+    //Serial.print(joystick_reading_2_1);
+    //Serial.print(",");
+    //Serial.println(joystick_reading_2_2);
+
 }
 
-bool JoysticksOn()
-{
-    if (joystick_reading_1_1 || joystick_reading_1_2)
+// @Melody, Lets work with this and change the return type to void map the values of the joystick 
+void JoysticksOn() // might not use this
+{   ReadJoysticks();
+    long temp = 0;
+    psi = 0.0;
+    phi = 0.0;
+    theta = 0.0;
+    // maping for psi
+
+    if (joystick_reading_1_1 > 573)
     {
-        joystick_on = true;
+        temp = map(joystick_reading_1_1, 573, 1023, 0, 15);
+        psi = (double)temp;
     }
-    else
+    else if (joystick_reading_1_1 < 450)
     {
-        joystick_on = false;
+        temp = map(joystick_reading_1_1, 0, 450, 0, -15);
+        psi = (double)temp;
     }
-    return joystick_on;
+    //maping for phi
+    if (joystick_reading_1_2 > 573)
+    {
+        temp = map(joystick_reading_1_2, 573, 1023, 0, 15);
+        phi = (double)temp;
+    }
+    else if (joystick_reading_1_2 < 450)
+    {
+        temp = map(joystick_reading_1_2, 0, 450, 0, -15);
+        phi = (double)temp;
+    }
+    // mapping for theta
+    if (joystick_reading_2_1 > 573)
+    {
+        temp = map(joystick_reading_2_1, 573, 1023, 0, 15);
+        theta = (double)temp;
+    }
+    else if (joystick_reading_2_1 < 450)
+    {
+        temp = map(joystick_reading_2_1, 0, 450, 0, -15);
+        theta = (double)temp;
+    }
+    //
+    joystick_angle [0] = psi;
+    joystick_angle [1] = phi;
+    joystick_angle [2] = theta;
+    
+  
+
+    for (int i = 0; i < 3; i = i + 1) {
+    Serial.println(joystick_angle[i]);
+  
 }
 
 // ServoAngles(&alphas, ) <- pass in variables as such
