@@ -12,13 +12,13 @@
 // Motor Limits
 // Pulse length counts are out of 4096
 // Indexed from servo 1 - 6
-const int SERVOMINS[6] = {160, 165, 160, 130, 135, 155};
-const int SERVOMAXS[6] = {500, 540, 500, 430, 470, 500};
+const int SERVOMINS[6] = {100, 165, 160, 130, 135, 155};
+const int SERVOMAXS[6] = {550, 540, 500, 430, 470, 500};
 
 // Test
 // const int SERVOMINS[6] = {150, 150, 150, 150, 150, 150};
 // const int SERVOMAXS[6] = {500, 500, 500, 500, 500, 500};
-const double SERVOCHG = 2.0;
+const double SERVOCHG = 1.0;
 const int LCD_CHANGE_DELAY = 3000;
 
 // Gate Reading Limit
@@ -59,7 +59,7 @@ const double PLATFORM_POSITIONS[6][3] = {
     {66.6, -6, 0.0}};
 
 const double BETA[6] = {0.0, 120.0, 120.0, 240.0, 240.0, 0.0};
-const unsigned long UPDATE_INTERVAL = 10;
+const unsigned long UPDATE_INTERVAL = 66;
 
 // Angles
 double theta = 0.0;
@@ -72,7 +72,7 @@ double home_height[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 // Runs (xp-xb)^2 and (yp-yb)^2
 float base_platform_deltas[6][2] = {{0.0, 0.0}, {0.0, 0.0}, {0.0, 0.0}, {0.0, 0.0}, {0.0, 0.0}, {0.0, 0.0}};
 // indexed from motor 1-6
-float alphas[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+double alphas[6] = {90.0, 90.0, 90.0, 90.0, 90.0, 90.0};
 // Reading
 int gate_reading_1 = 0;
 int gate_reading_2 = 0;
@@ -128,6 +128,7 @@ void setup()
         // home_height[i] is also zt[i]
         home_height[i] = sqrt((LINKAGE_LENGTH * LINKAGE_LENGTH + SERVO_ARM_LENGTH * SERVO_ARM_LENGTH - base_platform_deltas[i][0] - base_platform_deltas[i][1] - PLATFORM_POSITIONS[i][2]));
     }
+    SetServos(servo_settings[0], servo_settings[1], servo_settings[2], servo_settings[3], servo_settings[4], servo_settings[5]);
     lcd_msg_1[0] = millis();
     lcd_msg_2[0] = millis() + LCD_CHANGE_DELAY / 2;
     update = millis();
@@ -139,21 +140,23 @@ void setup()
     {
         angles[i] = 0.0;
     }
-    SetServos(servo_settings[0], servo_settings[1], servo_settings[2], servo_settings[3], servo_settings[4], servo_settings[5]);
-
-    Serial.println("Lets get started");
+    for (int i = 0; i <6; i++) {
+        pwm.setPWM(i + 1, 0, SERVOMINS[i]); // added +1 to match PWM port numbering (pins 1..6 used)
+    }
+    delay(1000);
+    for (int i = 0; i <6; i++) {
+        pwm.setPWM(i + 1, 0, SERVOMAXS[i]); // added +1 to match PWM port numbering (pins 1..6 used)
+    }
+    // delay(1000);
+    // SetServos(servo_settings[0], servo_settings[1], servo_settings[2], servo_settings[3], servo_settings[4], servo_settings[5]);
+    ResetLCD();
+    lcd.print("Lets get started");
+    delay(1000);
 }
 
 void loop()
 {
-
-    ResetLCD();
-    // lcd.print("Hello!");
-    delay(1000);
-
-    Serial.print(phi);
-    Serial.print(" : PHI");
-    if (millis() > lcd_msg_1[0] + LCD_CHANGE_DELAY)
+    if (millis() > lcd_msg_1[0] + LCD_CHANGE_DELAY && !joystick_on && joystick_reading_2_SW_pin)
     {
         lcd_msg_1[0] = millis();
         ResetLCD();
@@ -161,7 +164,7 @@ void loop()
         lcd.setCursor(0, 1);
         lcd.print("Click Joystick 1");
     }
-    if (millis() > lcd_msg_2[0] + LCD_CHANGE_DELAY)
+    if (millis() > lcd_msg_2[0] + LCD_CHANGE_DELAY && !joystick_on && joystick_reading_2_SW_pin)
     {
         lcd_msg_2[0] = millis();
         ResetLCD();
@@ -217,10 +220,10 @@ void SetServos(double motor_1, double motor_2, double motor_3, double motor_4, d
     {
         // Check that temp_servo_settings is not NULL and it is within our angle bounds
         // might need to change the bound of 0 -> 180 because sometimes the angle code outputs negative angles
-        if (temp_servo_settings[i] >= -180 && temp_servo_settings[i] < 180)
+        if (temp_servo_settings[i] >= -90 && temp_servo_settings[i] < 90)
         {
             // ADD SERVO DEAD BAND (NO CHANGE FOR SMALL DELTAS)
-            servo_settings[i] = map(temp_servo_settings[i], -180, 180, SERVOMINS[i], SERVOMAXS[i]);
+            servo_settings[i] = map(temp_servo_settings[i], -90, 90, SERVOMINS[i], SERVOMAXS[i]);
         }
         // else
         // {
@@ -342,9 +345,12 @@ void ManualControl()
 
     if (possible[0] && possible[1] && possible[2] && possible[3] && possible[4] && possible[5])
     {
-        alphas[1] = 180.0 - alphas[1];
-        alphas[3] = 180.0 - alphas[3];
-        alphas[5] = 180.0 - alphas[5];
+        // alphas[1] = 90 - alphas[1];
+        // alphas[3] = 90 - alphas[3];
+        // alphas[5] = 90 - alphas[5];
+        alphas[1] = -alphas[1];
+        alphas[3] = -alphas[3];
+        alphas[5] = -alphas[5];
         SetServos(alphas[0], alphas[1], alphas[2], alphas[3], alphas[4], alphas[5]);
     }
     else
@@ -387,6 +393,7 @@ void ReadJoysticks()
 void JoysticksOn() // might not use this
 {
     //long temp = 0;
+    static double angle_max = 30.0;
     ReadJoysticks();
     // psi = 0.0;
     // phi = 0.0;
@@ -409,52 +416,52 @@ void JoysticksOn() // might not use this
     if (millis() > update + UPDATE_INTERVAL)
     {
         update = millis();
-        // Serial.println("HOAFJASDFJKALSDF");
 
-        // if (joystick_reading_1_1 > 573 && psi <= 12.0)
-        if (joystick_reading_2_1 > 573 && psi <= 13.0)
+        if (joystick_reading_2_1 > 573 && psi <= angle_max)
         {
-            Serial.println("omg i did it big");
-            // temp = map(joystick_reading_2_1, 573, 1023, 0, 12);
-            psi += SERVOCHG;
+            psi += SERVOCHG * joystick_reading_2_1 / 300;
             Serial.println(psi);
         }
-        else if (joystick_reading_2_1 < 450 && psi >= -13.0)
+        else if (joystick_reading_2_1 < 450 && psi >= -angle_max)
         {
             Serial.println("omg i did it small");
             // temp = map(joystick_reading_2_1, 0, 450, 0, -12);
-            psi -= SERVOCHG;
+            // psi -= SERVOCHG;
+            psi -= SERVOCHG * (1023-joystick_reading_2_1) / 300;
             Serial.println(psi);
         }
         //maping for phi
-        if (joystick_reading_1_2 > 573 && phi <= 13.0)
+        if (joystick_reading_1_2 > 573 && phi <= angle_max)
         {
             Serial.println("omg i did it other big");
             // temp = map(joystick_reading_1_2, 573, 1023, 0, 12);
-            phi += SERVOCHG;
+            // phi += SERVOCHG;
+            phi += SERVOCHG * joystick_reading_1_2 / 300;
             Serial.println(phi);
         }
-        else if (joystick_reading_1_2 < 450 && phi >= -13.0)
+        else if (joystick_reading_1_2 < 450 && phi >= -angle_max)
         {
             Serial.println("omg i did it other small");
             // temp = map(joystick_reading_1_2, 0, 450, 0, -12);
-            phi -= SERVOCHG;
+            // phi -= SERVOCHG;
+            phi -= SERVOCHG * (1023-joystick_reading_1_2) / 300;
             Serial.println(phi);
         }
         // mapping for theta
-        if (joystick_reading_1_1 > 573 && theta <= 13.0)
+        if (joystick_reading_1_1 > 573 && theta <= angle_max)
         {
             Serial.println("omg i did it BIG");
             // temp = map(joystick_reading_1_1, 573, 1023, 0, 12);
             theta += SERVOCHG;
         }
-        else if (joystick_reading_1_1 < 450 && theta >= 13.0)
+        else if (joystick_reading_1_1 < 450 && theta >= -angle_max)
         {
             Serial.println("omg i did it SmaLL");
             // temp = map(joystick_reading_1_1, 0, 450, 0, -12);
             theta -= SERVOCHG;
         }
     }
+    Serial.println(theta);
 }
 
 // ServoAngles(&alphas, ) <- pass in variables as such
@@ -489,7 +496,6 @@ double ServoAngle(bool possible, double base_x, double base_y, double base_z, do
     L = lsquared - ((LINKAGE_LENGTH * LINKAGE_LENGTH) - (SERVO_ARM_LENGTH * SERVO_ARM_LENGTH));
     M = 2 * SERVO_ARM_LENGTH * (qi[2] - base_z);
     N = 2 * SERVO_ARM_LENGTH * ((cos(DegToRad(Beta)) * (qi[0] - base_x)) + (sin(DegToRad(Beta)) * (qi[1] - base_y)));
-
 
     // Check whether servo angles are possible
     length_possible = L / (sqrt((M * M + N * N)));
