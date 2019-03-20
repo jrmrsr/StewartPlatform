@@ -12,12 +12,12 @@
 // Motor Limits
 // Pulse length counts are out of 4096
 // Indexed from servo 1 - 6
-const int SERVOMINS[6] = {150, 165, 160, 130, 135, 155};
-const int SERVOMAXS[6] = {500, 540, 500, 500, 470, 500};
+// const int SERVOMINS[6] = {150, 165, 160, 130, 135, 155};
+// const int SERVOMAXS[6] = {500, 540, 500, 500, 470, 500};
 
 // Test
-// const int SERVOMINS[6] = {150, 150, 150, 150, 150, 150};
-// const int SERVOMAXS[6] = {500, 500, 500, 500, 500, 500};
+const int SERVOMINS[6] = {150, 150, 150, 150, 150, 150};
+const int SERVOMAXS[6] = {500, 500, 500, 500, 500, 500};
 const double SERVOCHG = 1.0;
 const int LCD_CHANGE_DELAY = 3000;
 
@@ -72,7 +72,7 @@ double home_height[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 // Runs (xp-xb)^2 and (yp-yb)^2
 float base_platform_deltas[6][2] = {{0.0, 0.0}, {0.0, 0.0}, {0.0, 0.0}, {0.0, 0.0}, {0.0, 0.0}, {0.0, 0.0}};
 // indexed from motor 1-6
-double alphas[6] = {90.0, 90.0, 90.0, 90.0, 90.0, 90.0};
+double alphas[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 // Reading
 int gate_reading_1 = 0;
 int gate_reading_2 = 0;
@@ -123,11 +123,14 @@ void setup()
         mid_1 = (SERVOMINS[i] + SERVOMAXS[i]);
         mid_2 = mid_1 / 2;
         servo_settings[i] = mid_2;
+        Serial.print(mid_2);
+        Serial.print(",");
         base_platform_deltas[i][0] = pow((PLATFORM_POSITIONS[i][0] - BASE_POSITIONS[i][0]), 2); // (xp-xb)^2
         base_platform_deltas[i][1] = pow((PLATFORM_POSITIONS[i][1] - BASE_POSITIONS[i][1]), 2); // (yp-yb)^2
         // home_height[i] is also zt[i]
         home_height[i] = sqrt((LINKAGE_LENGTH * LINKAGE_LENGTH + SERVO_ARM_LENGTH * SERVO_ARM_LENGTH - base_platform_deltas[i][0] - base_platform_deltas[i][1] - PLATFORM_POSITIONS[i][2]));
     }
+    Serial.println("");
     SetServos(servo_settings[0], servo_settings[1], servo_settings[2], servo_settings[3], servo_settings[4], servo_settings[5]);
     lcd_msg_1[0] = millis();
     lcd_msg_2[0] = millis() + LCD_CHANGE_DELAY / 2;
@@ -242,61 +245,114 @@ void SolveMaze()
 {
     // First gate
     ServoValues(); // Servo values are used for debugging
-    SetServos(100, 100, 100, 500, 100, 100);
+    SetServos(36.87,7.34,9.07,-31.36,52.50,-26.40);
     ResetLCD();
     lcd.print("Heading to first");
     lcd.setCursor(0, 1);
     lcd.print("gate");
     int gate_reading = analogRead(GATE_PIN_1); // Initialize gate reading for while loop
     // Maintain servos at required position using the while loop as a blocker
-    while (gate_reading < GATE_LIMIT)
-    {
-        JoysticksOn();
-        ReadAllPhotocells();
-        gate_reading = analogRead(GATE_PIN_1);
-    }
+    // while (gate_reading < GATE_LIMIT)
+    // {
+    //     JoysticksOn();
+    //     ReadAllPhotocells();
+    //     gate_reading = analogRead(GATE_PIN_1);
+    // }
+    delay(1500);
+
+
+    ServoValues(); // Servo values are used for debugging
+    SetServos(44.37,7.43,24.72,-37.18,37.18,-21.28);
+    ResetLCD();
+    lcd.print("Heading to first");
+    lcd.setCursor(0, 1);
+    lcd.print("gate");
+    gate_reading = analogRead(GATE_PIN_1);
+    // Maintain servos at required position using the while loop as a blocker
+    // while (gate_reading < GATE_LIMIT)
+    // {
+    //     JoysticksOn();
+    //     ReadAllPhotocells();
+    //     gate_reading = analogRead(GATE_PIN_1);
+    // }
+    delay(1500);
+
+// 24.05,-45.12,41.87,-5.95,3.82,-20.60,
 
     // Second gate
     ServoValues();
-    SetServos(100, 100, 100, 500, 100, 100);
+    // SetServos(27.63,-20.32,19.47,-19.47,20.32,-26.58);
+    SetServos(51.46,36.49,0.84,-45.73,45.73,-32.51);
     ResetLCD();
     lcd.print("Heading to second");
     lcd.setCursor(0, 1);
     lcd.print("gate");
     gate_reading = analogRead(GATE_PIN_2);
-    while (gate_reading < GATE_LIMIT)
-    {
-        JoysticksOn();
-        ReadAllPhotocells();
-        gate_reading = analogRead(GATE_PIN_2);
-    }
+    // while (gate_reading < GATE_LIMIT)
+    // {
+    //     JoysticksOn();
+    //     ReadAllPhotocells();
+    //     gate_reading = analogRead(GATE_PIN_2);
+    // }
+    delay(1500);
 
+ServoValues(); // Servo values are used for debugging
+    SetServos(-6.02,-67.39,74.32,-31.91,22.22,6.64);
+    ResetLCD();
+    lcd.print("Heading to first");
+    lcd.setCursor(0, 1);
+    lcd.print("gate");
+    gate_reading = analogRead(GATE_PIN_1);
+    // Maintain servos at required position using the while loop as a blocker
+    // while (gate_reading < GATE_LIMIT)
+    // {
+    //     JoysticksOn();
+    //     ReadAllPhotocells();
+    //     gate_reading = analogRead(GATE_PIN_1);
+    // }
+    delay(100);
+
+    ServoValues();
+    SetServos(21.03,-77.83,47.77,-6.02,-12.80,-28.63);
+    ResetLCD();
+    lcd.print("Heading to second");
+    lcd.setCursor(0, 1);
+    lcd.print("gate");
+    gate_reading = analogRead(GATE_PIN_2);
+    // while (gate_reading < GATE_LIMIT)
+    // {
+    //     JoysticksOn();
+    //     ReadAllPhotocells();
+    //     gate_reading = analogRead(GATE_PIN_2);
+    // }
+    delay(1500);
     // Third gate
     ServoValues();
-    SetServos(100, 100, 100, 500, 100, 100);
+    SetServos(22.90,-22.90,22.90,25.77,-25.55,-12.68);
     ResetLCD();
     lcd.print("Heading to third");
     lcd.setCursor(0, 1);
     lcd.print("gate");
     gate_reading = analogRead(GATE_PIN_3);
-    while (gate_reading < GATE_LIMIT)
-    {
-        JoysticksOn();
-        ReadAllPhotocells();
-        gate_reading = analogRead(GATE_PIN_3);
-    }
+    delay(1500);
+    // while (gate_reading < GATE_LIMIT)
+    // {
+    //     JoysticksOn();
+    //     ReadAllPhotocells();
+    //     gate_reading = analogRead(GATE_PIN_3);
+    // }
 
-    // Fourth gate
-    ServoValues();
-    SetServos(100, 100, 100, 500, 100, 100);
-    Serial.println("Heading to the fourth gate");
-    gate_reading = analogRead(GATE_PIN_4);
-    while (gate_reading < GATE_LIMIT)
-    {
-        JoysticksOn();
-        ReadAllPhotocells();
-        gate_reading = analogRead(GATE_PIN_4);
-    }
+    // // Fourth gate
+    // ServoValues();
+    // SetServos(100, 100, 100, 500, 100, 100);
+    // Serial.println("Heading to the fourth gate");
+    // gate_reading = analogRead(GATE_PIN_4);
+    // while (gate_reading < GATE_LIMIT)
+    // {
+    //     JoysticksOn();
+    //     ReadAllPhotocells();
+    //     gate_reading = analogRead(GATE_PIN_4);
+    // }
 }
 
 void ReadAllPhotocells()
@@ -353,9 +409,9 @@ void ManualControl()
         // alphas[1] = 90 - alphas[1];
         // alphas[3] = 90 - alphas[3];
         // alphas[5] = 90 - alphas[5];
-        alphas[1] = -alphas[1];
-        alphas[3] = -alphas[3];
-        alphas[5] = -alphas[5];
+        alphas[1] = -1*alphas[1];
+        alphas[3] = -1*alphas[3];
+        alphas[5] = -1*alphas[5];
         SetServos(alphas[0], alphas[1], alphas[2], alphas[3], alphas[4], alphas[5]);
     }
     else
@@ -365,10 +421,10 @@ void ManualControl()
         lcd.setCursor(0, 1);
         lcd.print("possible!");
     }
-
+    Serial.print("Alphas: ");
     for(int i = 0; i < 6; i++) {
 
-      Serial.print(angles[i]);
+      Serial.print(alphas[i]);
       Serial.print(",");
     }
     Serial.println("");
