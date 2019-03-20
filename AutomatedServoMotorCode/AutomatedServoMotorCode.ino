@@ -12,8 +12,8 @@
 // Motor Limits
 // Pulse length counts are out of 4096
 // Indexed from servo 1 - 6
-const int SERVOMINS[6] = {100, 165, 160, 130, 135, 155};
-const int SERVOMAXS[6] = {550, 540, 500, 430, 470, 500};
+const int SERVOMINS[6] = {150, 165, 160, 130, 135, 155};
+const int SERVOMAXS[6] = {500, 540, 500, 500, 470, 500};
 
 // Test
 // const int SERVOMINS[6] = {150, 150, 150, 150, 150, 150};
@@ -140,13 +140,13 @@ void setup()
     {
         angles[i] = 0.0;
     }
-    for (int i = 0; i <6; i++) {
-        pwm.setPWM(i + 1, 0, SERVOMINS[i]); // added +1 to match PWM port numbering (pins 1..6 used)
-    }
-    delay(1000);
-    for (int i = 0; i <6; i++) {
-        pwm.setPWM(i + 1, 0, SERVOMAXS[i]); // added +1 to match PWM port numbering (pins 1..6 used)
-    }
+  //for (int i = 0; i <6; i++) {
+  //     pwm.setPWM(i + 1, 0, SERVOMINS[i]); // added +1 to match PWM port numbering (pins 1..6 used)
+  // }
+  // delay(1000);
+  //for (int i = 0; i <6; i++) {
+  //     pwm.setPWM(i + 1, 0, SERVOMAXS[i]); // added +1 to match PWM port numbering (pins 1..6 used)
+  // }
     // delay(1000);
     // SetServos(servo_settings[0], servo_settings[1], servo_settings[2], servo_settings[3], servo_settings[4], servo_settings[5]);
     ResetLCD();
@@ -216,6 +216,7 @@ void SetServos(double motor_1, double motor_2, double motor_3, double motor_4, d
                                      motor_5,
                                      motor_6};
 
+Serial.print("Hello: ");
     for (int i = 0; i < 6; i++)
     {
         // Check that temp_servo_settings is not NULL and it is within our angle bounds
@@ -224,13 +225,17 @@ void SetServos(double motor_1, double motor_2, double motor_3, double motor_4, d
         {
             // ADD SERVO DEAD BAND (NO CHANGE FOR SMALL DELTAS)
             servo_settings[i] = map(temp_servo_settings[i], -90, 90, SERVOMINS[i], SERVOMAXS[i]);
+            Serial.print(servo_settings[i]);
+            Serial.print(",");
         }
+        
         // else
         // {
         //     servo_settings[i] = temp_servo_settings[i];
         // }
         pwm.setPWM(i + 1, 0, servo_settings[i]); // added +1 to match PWM port numbering (pins 1..6 used)
     }
+    Serial.println("");
 }
 
 void SolveMaze()
@@ -360,6 +365,13 @@ void ManualControl()
         lcd.setCursor(0, 1);
         lcd.print("possible!");
     }
+
+    for(int i = 0; i < 6; i++) {
+
+      Serial.print(angles[i]);
+      Serial.print(",");
+    }
+    Serial.println("");
     if (millis() > lcd_msg_1[1] + LCD_CHANGE_DELAY)
     {
         lcd_msg_1[1] = millis();
@@ -420,7 +432,7 @@ void JoysticksOn() // might not use this
         if (joystick_reading_2_1 > 573 && psi <= angle_max)
         {
             psi += SERVOCHG * joystick_reading_2_1 / 300;
-            Serial.println(psi);
+//            Serial.println(psi);
         }
         else if (joystick_reading_2_1 < 450 && psi >= -angle_max)
         {
@@ -428,7 +440,7 @@ void JoysticksOn() // might not use this
             // temp = map(joystick_reading_2_1, 0, 450, 0, -12);
             // psi -= SERVOCHG;
             psi -= SERVOCHG * (1023-joystick_reading_2_1) / 300;
-            Serial.println(psi);
+//            Serial.println(psi);
         }
         //maping for phi
         if (joystick_reading_1_2 > 573 && phi <= angle_max)
@@ -437,7 +449,7 @@ void JoysticksOn() // might not use this
             // temp = map(joystick_reading_1_2, 573, 1023, 0, 12);
             // phi += SERVOCHG;
             phi += SERVOCHG * joystick_reading_1_2 / 300;
-            Serial.println(phi);
+//            Serial.println(phi);
         }
         else if (joystick_reading_1_2 < 450 && phi >= -angle_max)
         {
@@ -445,7 +457,7 @@ void JoysticksOn() // might not use this
             // temp = map(joystick_reading_1_2, 0, 450, 0, -12);
             // phi -= SERVOCHG;
             phi -= SERVOCHG * (1023-joystick_reading_1_2) / 300;
-            Serial.println(phi);
+//            Serial.println(phi);
         }
         // mapping for theta
         if (joystick_reading_1_1 > 573 && theta <= angle_max)
@@ -505,7 +517,7 @@ double ServoAngle(bool possible, double base_x, double base_y, double base_z, do
         return;
     }
     // possible = true;
-    Serial.println(possible);
+//    Serial.println(possible);
     alpha = RadToDeg((asin(length_possible) - atan((N / M))));
     return alpha;
 }
