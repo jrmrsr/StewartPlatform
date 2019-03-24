@@ -101,7 +101,7 @@ bool self_solve_on = false;
 // Initializing PWM Shield
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
 // Initializing lCD
-LiquidCrystal lcd(19, 18, 47, 49, 51, 53); /// REGISTER SELECT PIN,ENABLE PIN,D4 PIN,D5 PIN, D6 PIN, D7 PIN
+LiquidCrystal lcd(19, 18, 47, 49, 51, 53); // REGISTER SELECT PIN,ENABLE PIN,D4 PIN,D5 PIN, D6 PIN, D7 PIN
 
 void setup()
 {
@@ -143,15 +143,6 @@ void setup()
     {
         angles[i] = 0.0;
     }
-  //for (int i = 0; i <6; i++) {
-  //     pwm.setPWM(i + 1, 0, SERVOMINS[i]); // added +1 to match PWM port numbering (pins 1..6 used)
-  // }
-  // delay(1000);
-  //for (int i = 0; i <6; i++) {
-  //     pwm.setPWM(i + 1, 0, SERVOMAXS[i]); // added +1 to match PWM port numbering (pins 1..6 used)
-  // }
-    // delay(1000);
-    // SetServos(servo_settings[0], servo_settings[1], servo_settings[2], servo_settings[3], servo_settings[4], servo_settings[5]);
     ResetLCD();
     lcd.print("Lets get started");
     delay(1000);
@@ -176,16 +167,11 @@ void loop()
         lcd.print("Click Joystick 2");
     }
     JoysticksOn();
-    // while (joystick_on)
-    // {
     ManualControl();
-    // }
     if (!joystick_reading_2_SW_pin)
     {
         SolveMaze();
     }
-    // ServoMiddle();
-    // delay(100); // servos cannot receive pwm changes any quicker than this
 }
 
 void ServoValues()
@@ -218,34 +204,31 @@ void SetServos(double motor_1, double motor_2, double motor_3, double motor_4, d
                                      motor_4,
                                      motor_5,
                                      motor_6};
+    static int pwm_index = -1;
 
-Serial.print("Hello: ");
+    Serial.print("Hello: ");
     for (int i = 0; i < 6; i++)
     {
         // Check that temp_servo_settings is not NULL and it is within our angle bounds
         // might need to change the bound of 0 -> 180 because sometimes the angle code outputs negative angles
         if (temp_servo_settings[i] >= -90 && temp_servo_settings[i] < 90)
         {
-            // ADD SERVO DEAD BAND (NO CHANGE FOR SMALL DELTAS)
             servo_settings[i] = map(temp_servo_settings[i], -90, 90, SERVOMINS[i], SERVOMAXS[i]);
             Serial.print(servo_settings[i]);
             Serial.print(",");
         }
-        
-        // else
-        // {
-        //     servo_settings[i] = temp_servo_settings[i];
-        // }
-        pwm.setPWM(i + 1, 0, servo_settings[i]); // added +1 to match PWM port numbering (pins 1..6 used)
+        pwm_index += 2;
+        pwm.setPWM(pwm_index, 0, servo_settings[i]); // added +1 to match PWM port numbering (pins 1..6 used)
     }
     Serial.println("");
+    pwm_index = -1;
 }
 
 void SolveMaze()
 {
     // First gate
     ServoValues(); // Servo values are used for debugging
-    SetServos(36.87,7.34,9.07,-31.36,52.50,-26.40);
+    SetServos(36.87, 7.34, 9.07, -31.36, 52.50, -26.40);
     ResetLCD();
     lcd.print("Heading to first");
     lcd.setCursor(0, 1);
@@ -260,9 +243,8 @@ void SolveMaze()
     // }
     delay(1500);
 
-
     ServoValues(); // Servo values are used for debugging
-    SetServos(44.37,7.43,24.72,-37.18,37.18,-21.28);
+    SetServos(44.37, 7.43, 24.72, -37.18, 37.18, -21.28);
     ResetLCD();
     lcd.print("Heading to first");
     lcd.setCursor(0, 1);
@@ -277,12 +259,12 @@ void SolveMaze()
     // }
     delay(1500);
 
-// 24.05,-45.12,41.87,-5.95,3.82,-20.60,
+    // 24.05,-45.12,41.87,-5.95,3.82,-20.60,
 
     // Second gate
     ServoValues();
     // SetServos(27.63,-20.32,19.47,-19.47,20.32,-26.58);
-    SetServos(51.46,36.49,0.84,-45.73,45.73,-32.51);
+    SetServos(51.46, 36.49, 0.84, -45.73, 45.73, -32.51);
     ResetLCD();
     lcd.print("Heading to second");
     lcd.setCursor(0, 1);
@@ -296,8 +278,8 @@ void SolveMaze()
     // }
     delay(1500);
 
-ServoValues(); // Servo values are used for debugging
-    SetServos(-6.02,-67.39,74.32,-31.91,22.22,6.64);
+    ServoValues(); // Servo values are used for debugging
+    SetServos(-6.02, -67.39, 74.32, -31.91, 22.22, 6.64);
     ResetLCD();
     lcd.print("Heading to first");
     lcd.setCursor(0, 1);
@@ -313,7 +295,7 @@ ServoValues(); // Servo values are used for debugging
     delay(100);
 
     ServoValues();
-    SetServos(21.03,-77.83,47.77,-6.02,-12.80,-28.63);
+    SetServos(21.03, -77.83, 47.77, -6.02, -12.80, -28.63);
     ResetLCD();
     lcd.print("Heading to second");
     lcd.setCursor(0, 1);
@@ -328,7 +310,7 @@ ServoValues(); // Servo values are used for debugging
     delay(1500);
     // Third gate
     ServoValues();
-    SetServos(22.90,-22.90,22.90,25.77,-25.55,-12.68);
+    SetServos(22.90, -22.90, 22.90, 25.77, -25.55, -12.68);
     ResetLCD();
     lcd.print("Heading to third");
     lcd.setCursor(0, 1);
@@ -394,11 +376,6 @@ void ManualControl()
     angles[2] = DegToRad(phi);
     CalcRotation(rotation_matrix, angles[0], angles[1], angles[2]);
 
-    // for loop to calc servo angles based on 1-d coord array
-    // ServoAngle(alpha[2], base_coord[i],base_coord[i+1],base_coord[i+2] ...) <- to match matlab code
-    // in loop, i+=3;
-
-    // So the matlab code uses weird indexing for Beta, so we are going to
     for (int i = 0; i < 6; i++)
     {
         alphas[i] = ServoAngle(possible[i], BASE_POSITIONS[i][c], BASE_POSITIONS[i][(c + 1)], BASE_POSITIONS[i][c + 2], PLATFORM_POSITIONS[i][c], PLATFORM_POSITIONS[i][(c + 1)], PLATFORM_POSITIONS[i][c + 2], BETA[i], rotation_matrix, home_height[i]);
@@ -409,9 +386,9 @@ void ManualControl()
         // alphas[1] = 90 - alphas[1];
         // alphas[3] = 90 - alphas[3];
         // alphas[5] = 90 - alphas[5];
-        alphas[1] = -1*alphas[1];
-        alphas[3] = -1*alphas[3];
-        alphas[5] = -1*alphas[5];
+        alphas[1] = -1 * alphas[1];
+        alphas[3] = -1 * alphas[3];
+        alphas[5] = -1 * alphas[5];
         SetServos(alphas[0], alphas[1], alphas[2], alphas[3], alphas[4], alphas[5]);
     }
     else
@@ -422,10 +399,11 @@ void ManualControl()
         lcd.print("possible!");
     }
     Serial.print("Alphas: ");
-    for(int i = 0; i < 6; i++) {
+    for (int i = 0; i < 6; i++)
+    {
 
-      Serial.print(alphas[i]);
-      Serial.print(",");
+        Serial.print(alphas[i]);
+        Serial.print(",");
     }
     Serial.println("");
     if (millis() > lcd_msg_1[1] + LCD_CHANGE_DELAY)
@@ -457,18 +435,11 @@ void ReadJoysticks()
     joystick_reading_2_SW_pin = digitalRead(JOYSTICK_2_SW_pin);
 }
 
-// @Melody, Lets work with this and change the return type to void map the values of the joystick
-void JoysticksOn() // might not use this
+void JoysticksOn() 
 {
-    //long temp = 0;
     static double angle_max = 30.0;
     ReadJoysticks();
-    // psi = 0.0;
-    // phi = 0.0;
-    // theta = 0.0;
-    // maping for psi
 
-    //INSTEAD OF MAPPING, INCREASE PSI BY SOME AMMOUNT after some time
     // if (!joystick_reading_1_SW_pin) // joystick pin pressed down = 0
     // {
     //     self_solve_on = false;
@@ -488,44 +459,25 @@ void JoysticksOn() // might not use this
         if (joystick_reading_2_1 > 573 && psi <= angle_max)
         {
             psi += SERVOCHG * joystick_reading_2_1 / 300;
-//            Serial.println(psi);
         }
         else if (joystick_reading_2_1 < 450 && psi >= -angle_max)
         {
-            Serial.println("omg i did it small");
-            // temp = map(joystick_reading_2_1, 0, 450, 0, -12);
-            // psi -= SERVOCHG;
-            psi -= SERVOCHG * (1023-joystick_reading_2_1) / 300;
-//            Serial.println(psi);
+            psi -= SERVOCHG * (1023 - joystick_reading_2_1) / 300;
         }
-        //maping for phi
         if (joystick_reading_1_2 > 573 && phi <= angle_max)
         {
-            Serial.println("omg i did it other big");
-            // temp = map(joystick_reading_1_2, 573, 1023, 0, 12);
-            // phi += SERVOCHG;
             phi += SERVOCHG * joystick_reading_1_2 / 300;
-//            Serial.println(phi);
         }
         else if (joystick_reading_1_2 < 450 && phi >= -angle_max)
         {
-            Serial.println("omg i did it other small");
-            // temp = map(joystick_reading_1_2, 0, 450, 0, -12);
-            // phi -= SERVOCHG;
-            phi -= SERVOCHG * (1023-joystick_reading_1_2) / 300;
-//            Serial.println(phi);
+            phi -= SERVOCHG * (1023 - joystick_reading_1_2) / 300;
         }
-        // mapping for theta
         if (joystick_reading_1_1 > 573 && theta <= angle_max)
         {
-            Serial.println("omg i did it BIG");
-            // temp = map(joystick_reading_1_1, 573, 1023, 0, 12);
             theta += SERVOCHG;
         }
         else if (joystick_reading_1_1 < 450 && theta >= -angle_max)
         {
-            Serial.println("omg i did it SmaLL");
-            // temp = map(joystick_reading_1_1, 0, 450, 0, -12);
             theta -= SERVOCHG;
         }
     }
@@ -572,8 +524,6 @@ double ServoAngle(bool possible, double base_x, double base_y, double base_z, do
         possible = false;
         return;
     }
-    // possible = true;
-//    Serial.println(possible);
     alpha = RadToDeg((asin(length_possible) - atan((N / M))));
     return alpha;
 }
@@ -626,7 +576,6 @@ void MatrixSummation(double M1[], double M2[], int rows, int col, double results
         {
             for (int j = 0; j < col; j++)
             {
-                // Might need to simplify this to be more streamlined for our case, depending on computation time.
                 results[((col + 1) * i + j)] = M1[((col + 1) * i + j)] + M2[((col + 1) * i + j)];
             }
         }
