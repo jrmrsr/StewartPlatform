@@ -70,12 +70,7 @@ float base_platform_deltas[6][2] = {{0.0, 0.0}, {0.0, 0.0}, {0.0, 0.0}, {0.0, 0.
 // indexed from motor 1-6
 double alphas[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 // Reading
-int gate_reading_1 = 0;
-int gate_reading_2 = 0;
-int gate_reading_3 = 0;
-int gate_reading_4 = 0;
-int gate_reading_5 = 0;
-int gate_reading_6 = 0;
+int gate_readings[6] = {0,0,0,0,0,0};
 int joystick_reading_1_1 = 0;
 int joystick_reading_1_2 = 0;
 int joystick_reading_1_SW_pin = 0;
@@ -123,14 +118,11 @@ void setup()
         mid_1 = (SERVOMINS[i] + SERVOMAXS[i]);
         mid_2 = mid_1 / 2;
         servo_settings[i] = mid_2;
-        Serial.print(mid_2);
-        Serial.print(",");
         base_platform_deltas[i][0] = pow((PLATFORM_POSITIONS[i][0] - BASE_POSITIONS[i][0]), 2); // (xp-xb)^2
         base_platform_deltas[i][1] = pow((PLATFORM_POSITIONS[i][1] - BASE_POSITIONS[i][1]), 2); // (yp-yb)^2
         // home_height[i] is also zt[i]
         home_height[i] = sqrt((LINKAGE_LENGTH * LINKAGE_LENGTH + SERVO_ARM_LENGTH * SERVO_ARM_LENGTH - base_platform_deltas[i][0] - base_platform_deltas[i][1] - PLATFORM_POSITIONS[i][2]));
     }
-    Serial.println("");
     SetServos(servo_settings[0], servo_settings[1], servo_settings[2], servo_settings[3], servo_settings[4], servo_settings[5]);
     lcd_msg_1[0] = millis();
     lcd_msg_2[0] = millis() + LCD_CHANGE_DELAY / 2;
@@ -144,8 +136,9 @@ void setup()
         angles[i] = 0.0;
     }
     ResetLCD();
-    lcd.print("Lets get started");
-    delay(1000);
+    lcd.print("Automated Maze");
+    lcd.setCursor(0,1);
+    lcd.print("Solver V1");
 }
 
 void loop()
@@ -176,7 +169,6 @@ void loop()
     {
         SolveMazeTimer();
     }
-    ReadAllPhotocells();
 }
 
 void ServoValues()
@@ -294,11 +286,10 @@ void SolveMaze()
     gate_reading = analogRead(GATE_PIN_6);
     while (gate_reading > GATE_LIMIT)
     {
-        ReadAllPhotocells();
         gate_reading = analogRead(GATE_PIN_6);
         if ((millis() - run_time) > 15000)
         {
-            gate_reading = 0;
+            gate_reading = 1000;
         }
     }
     run_time = millis() - run_time;
@@ -367,12 +358,12 @@ void SolveMazeTimer()
 
 void ReadAllPhotocells()
 {
-    gate_reading_1 = analogRead(GATE_PIN_1);
-    gate_reading_2 = analogRead(GATE_PIN_2);
-    gate_reading_3 = analogRead(GATE_PIN_3);
-    gate_reading_4 = analogRead(GATE_PIN_4);
-    gate_reading_5 = analogRead(GATE_PIN_5);
-    gate_reading_6 = analogRead(GATE_PIN_6);
+    gate_readings[0] = analogRead(GATE_PIN_1);
+    gate_readings[1] = analogRead(GATE_PIN_2);
+    gate_readings[2] = analogRead(GATE_PIN_3);
+    gate_readings[3] = analogRead(GATE_PIN_4);
+    gate_readings[4] = analogRead(GATE_PIN_5);
+    gate_readings[5] = analogRead(GATE_PIN_6);
 }
 
 void ManualControl()
@@ -380,9 +371,8 @@ void ManualControl()
     // index is w * h
     double rotation_matrix[9] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
     double inc[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-    double alpha_inc[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-
-    int c = 0; // Counter Variable
+    lcd_msg_1[1] = millis();
+    lcd_msg_2[1] = millis();
 
     JoysticksOn();
 
@@ -393,7 +383,7 @@ void ManualControl()
 
     for (int i = 0; i < 6; i++)
     {
-        alphas[i] = ServoAngle(possible[i], BASE_POSITIONS[i][c], BASE_POSITIONS[i][(c + 1)], BASE_POSITIONS[i][c + 2], PLATFORM_POSITIONS[i][c], PLATFORM_POSITIONS[i][(c + 1)], PLATFORM_POSITIONS[i][c + 2], BETA[i], rotation_matrix, home_height[i]);
+        alphas[i] = ServoAngle(possible[i], BASE_POSITIONS[i][0], BASE_POSITIONS[i][(1)], BASE_POSITIONS[i][2], PLATFORM_POSITIONS[i][0], PLATFORM_POSITIONS[i][(1)], PLATFORM_POSITIONS[i][2], BETA[i], rotation_matrix, home_height[i]);
     }
 
     if (possible[0] && possible[1] && possible[2] && possible[3] && possible[4] && possible[5])
@@ -403,13 +393,7 @@ void ManualControl()
         alphas[5] = -1 * alphas[5];
         SetServos(alphas[0], alphas[1], alphas[2], alphas[3], alphas[4], alphas[5]);
     }
-    else
-    {
-        ResetLCD();
-        lcd.print("Angle not");
-        lcd.setCursor(0, 1);
-        lcd.print("possible!");
-    }
+    
     Serial.print("Alphas: ");
     for (int i = 0; i < 6; i++)
     {
@@ -418,6 +402,7 @@ void ManualControl()
         Serial.print(",");
     }
     Serial.println("");
+
     if (millis() > lcd_msg_1[1] + LCD_CHANGE_DELAY)
     {
         lcd_msg_1[1] = millis();
