@@ -14,7 +14,7 @@
 const int SERVOMINS[6] = {150, 150, 150, 150, 150, 150};
 const int SERVOMAXS[6] = {500, 500, 500, 500, 500, 500};
 const double SERVOCHG = 1.0;
-const int LCD_CHANGE_DELAY = 3000;
+const int LCD_CHANGE_DELAY = 4000;
 
 // Gate Reading Limit
 const int GATE_LIMIT = 350;
@@ -70,7 +70,7 @@ float base_platform_deltas[6][2] = {{0.0, 0.0}, {0.0, 0.0}, {0.0, 0.0}, {0.0, 0.
 // indexed from motor 1-6
 double alphas[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 // Reading
-int gate_readings[6] = {0,0,0,0,0,0};
+int gate_readings[6] = {0, 0, 0, 0, 0, 0};
 int joystick_reading_1_1 = 0;
 int joystick_reading_1_2 = 0;
 int joystick_reading_1_SW_pin = 0;
@@ -78,9 +78,11 @@ int joystick_reading_2_1 = 0;
 int joystick_reading_2_2 = 0;
 int joystick_reading_2_SW_pin = 0;
 int joystick_angle[3] = {0, 0, 0};
+int mid_1 = 0;
+int mid_2 = 0;
 // Message Timing
-unsigned long lcd_msg_1[4] = {0, 0, 0, 0};
-unsigned long lcd_msg_2[4] = {0, 0, 0, 0};
+unsigned long lcd_msg_1[2] = {0, 0};
+unsigned long lcd_msg_2[2] = {0, 0};
 unsigned long update = 0;
 unsigned long run_time = 0;
 
@@ -89,7 +91,8 @@ bool possible[6] = {true, true, true, true, true, true};
 
 bool joystick_on = false;
 bool keyboard_off = false;
-bool self_solve_on = false;
+bool manual_solve_on = true;
+
 // Initializing PWM Shield
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
 
@@ -109,8 +112,8 @@ void setup()
     digitalWrite(JOYSTICK_2_SW_pin, HIGH); // ENABLE THE INTERNAL PULLUP ON THE INPUT PIN
     pinMode(LCD_CONTRAST_PIN, OUTPUT);
     analogWrite(LCD_CONTRAST_PIN, 5);
-    int mid_1 = 0;
-    int mid_2 = 0;
+    mid_1 = 0;
+    mid_2 = 0;
     for (int i = 0; i < 6; i++)
     {
         // Changing the order of the servo settings array allows us to change the orientation of the maze if
@@ -137,12 +140,18 @@ void setup()
     }
     ResetLCD();
     lcd.print("Automated Maze");
-    lcd.setCursor(0,1);
+    lcd.setCursor(0, 1);
     lcd.print("Solver V1");
+    delay(1000);
 }
 
 void loop()
 {
+    if (run_time == 0)
+    {
+        run_time = millis();
+    }
+
     if (millis() > lcd_msg_1[0] + LCD_CHANGE_DELAY && !joystick_on && joystick_reading_2_SW_pin)
     {
         lcd_msg_1[0] = millis();
@@ -154,11 +163,33 @@ void loop()
     if (millis() > lcd_msg_2[0] + LCD_CHANGE_DELAY && !joystick_on && joystick_reading_2_SW_pin)
     {
         lcd_msg_2[0] = millis();
-        ResetLCD();
-        lcd.print("Sensor Solve:");
-        lcd.setCursor(0, 1);
-        lcd.print("Click Joystick 2");
+        manual_solve_on = !manual_solve_on;
+        if (manual_solve_on)
+        {
+            ResetLCD();
+            lcd.print("Manual Solve:");
+            lcd.setCursor(0, 1);
+            lcd.print("Use Joysticks");
+        }
+        else
+        {
+            ResetLCD();
+            lcd.print("Sensor Solve:");
+            lcd.setCursor(0, 1);
+            lcd.print("Click Joystick 2");
+        }
     }
+
+    gate_readings[5] = GATE_PIN_6;
+    if (gate_reading[5] > GATE_LIMIT)
+    {
+        gate_reading = analogRead(GATE_PIN_6);
+        if ((millis() - run_time) > 15000)
+        {
+            gate_reading = 1000;
+        }
+    }
+
     JoysticksOn();
     ManualControl();
     if (!joystick_reading_2_SW_pin)
@@ -171,27 +202,7 @@ void loop()
     }
 }
 
-void ServoValues()
-{
-    ResetLCD();
-    lcd.print("[");
-    for (int i = 0; i < 3; i++)
-    {
-        lcd.print(servo_settings[i]);
-        lcd.print(",");
-    }
-    lcd.setCursor(0, 1);
-    for (int i = 3; i < 5; i++)
-    {
-        lcd.print(servo_settings[i]);
-        lcd.print(",");
-    }
-    lcd.print(servo_settings[5]);
-    lcd.print("]");
-}
-
 // Takes in motor angle in degrees and then returns an array of PWM values for motors
-// TODO: INCREASE SERVO ANGLE INCREMENTALLY TO GUARD AGAINST WRONG DIRECTIVE
 void SetServos(double motor_1, double motor_2, double motor_3, double motor_4, double motor_5, double motor_6)
 {
     // temp array
@@ -218,34 +229,31 @@ void SolveMaze()
 {
     run_time = millis();
     // First gate
-    ServoValues(); // Servo values are used for debugging
     SetServos(19.65, 16.51, -15.66, -71.23, 83.32, -25.28);
     ResetLCD();
     lcd.print("Heading to first");
     lcd.setCursor(0, 1);
     lcd.print("gate");
-    int gate_reading = analogRead(GATE_PIN_1);
-    while (gate_reading > GATE_LIMIT)
+    gate_readings[0] = analogRead(GATE_PIN_1);
+    while (gate_readings[0] > GATE_LIMIT)
     {
         ReadAllPhotocells();
-        gate_reading = analogRead(GATE_PIN_1);
+        gate_readings[0] = analogRead(GATE_PIN_1);
     }
 
     // Second gate
-    ServoValues();
     SetServos(51.46, 36.49, 0.84, -45.73, 45.73, -32.51);
     ResetLCD();
     lcd.print("Heading to ");
     lcd.setCursor(0, 1);
     lcd.print("second gate");
-    gate_reading = analogRead(GATE_PIN_3);
-    while (gate_reading > GATE_LIMIT)
+    gate_readings[2] = analogRead(GATE_PIN_3);
+    while (gate_readings[2] > GATE_LIMIT)
     {
         ReadAllPhotocells();
-        gate_reading = analogRead(GATE_PIN_3);
+        gate_readings[2] = analogRead(GATE_PIN_3);
     }
 
-    ServoValues(); // Servo values are used for debugging
     SetServos(-6.02, -67.39, 74.32, -31.91, 22.22, 6.64);
     ResetLCD();
     lcd.print("Heading to third");
@@ -253,107 +261,101 @@ void SolveMaze()
     lcd.print("gate");
     delay(75);
 
-    ServoValues(); // Servo values are used for debugging
     SetServos(21.03, -77.83, 47.77, -6.02, -12.80, -28.63);
 
-    ServoValues();
     SetServos(29.12, -29.12, 72.33, 20.95, -21.75, -20.61);
     ResetLCD();
     lcd.print("Heading to ");
     lcd.setCursor(0, 1);
     lcd.print("fifth gate");
 
-    gate_reading = analogRead(GATE_PIN_5);
-    while (gate_reading > 400) //CHECK THIS
+    gate_readings[4] = analogRead(GATE_PIN_5);
+    while (gate_readings[4] > 400) //CHECK THIS
     {
         ReadAllPhotocells();
-        gate_reading = analogRead(GATE_PIN_5);
+        gate_readings[4] = analogRead(GATE_PIN_5);
     }
 
-    ServoValues(); // Servo values are used for debugging
     SetServos(62.71, -52.72, 35.95, 51.42, -57.86, -52.80);
     ResetLCD();
     lcd.print("Heading to last");
     lcd.setCursor(0, 1);
     lcd.print("gate");
 
-    ServoValues();
     SetServos(22.90, -22.90, 22.90, 25.77, -25.55, -12.68);
 
     delay(1000);
-    ServoMiddle();
+    SetServoMiddle();
     delay(750);
-    gate_reading = analogRead(GATE_PIN_6);
-    while (gate_reading > GATE_LIMIT)
+    gate_readings[5] = analogRead(GATE_PIN_6);
+    while (gate_readings[5] > GATE_LIMIT)
     {
-        gate_reading = analogRead(GATE_PIN_6);
+        gate_readings[5] = analogRead(GATE_PIN_6);
         if ((millis() - run_time) > 15000)
         {
-            gate_reading = 1000;
+            gate_readings[5] = 1000;
         }
     }
     run_time = millis() - run_time;
-    lcd_msg_1[0] = millis();
-    lcd_msg_2[0] = millis();
+    ResetLCD();
+    lcd.print("Run Time:");
+    lcd.setCursor(0, 1);
+    lcd.print(run_time);
+
+    run_time = 0;
+    lcd_msg_1[0] = millis() + LCD_CHANGE_DELAY / 2;
+    lcd_msg_2[0] = millis() + LCD_CHANGE_DELAY;
 }
 
 void SolveMazeTimer()
 {
+    run_time = millis();
     // First gate
-    ServoValues(); // Servo values are used for debugging
-    SetServos(36.87, 7.34, 9.07, -31.36, 52.50, -26.40);
     ResetLCD();
-    lcd.print("Heading to first");
+    lcd.print("Solving maze");
     lcd.setCursor(0, 1);
-    lcd.print("gate");
+    lcd.print("with timer");
+    SetServos(36.87, 7.34, 9.07, -31.36, 52.50, -26.40);
     delay(1000);
 
-    ServoValues(); // Servo values are used for debugging
     SetServos(44.37, 7.43, 24.72, -37.18, 37.18, -21.28);
-    ResetLCD();
-    lcd.print("Heading to ");
-    lcd.setCursor(0, 1);
-    lcd.print("second gate");
     delay(1000);
 
     // Second gate
-    ServoValues();
     SetServos(51.46, 36.49, 0.84, -45.73, 45.73, -32.51);
-    ResetLCD();
-    lcd.print("Heading to ");
-    lcd.setCursor(0, 1);
-    lcd.print("third gate");
     delay(1250);
 
-    ServoValues(); // Servo values are used for debugging
     SetServos(-6.02, -67.39, 74.32, -31.91, 22.22, 6.64);
-    ResetLCD();
-    lcd.print("Heading to first");
-    lcd.setCursor(0, 1);
-    lcd.print("gate");
     delay(130);
 
-    ServoValues();
     SetServos(21.03, -77.83, 47.77, -6.02, -12.80, -28.63);
-    ResetLCD();
-    lcd.print("Heading to ");
-    lcd.setCursor(0, 1);
-    lcd.print("fourth gate");
     delay(400);
 
-    ServoValues();
     SetServos(22.90, -22.90, 22.90, 25.77, -25.55, -12.68);
-    ResetLCD();
-    lcd.print("Heading to last");
-    lcd.setCursor(0, 1);
-    lcd.print("gate");
     delay(1500);
 
-    ServoMiddle();
+    SetServoMiddle();
     delay(750);
 
-    lcd_msg_1[0] = millis();
-    lcd_msg_2[0] = millis();
+    gate_readings[5] = analogRead(GATE_PIN_6);
+    while (gate_readings[5] > GATE_LIMIT)
+    {
+        gate_readings[5] = analogRead(GATE_PIN_6);
+        if ((millis() - run_time) > 15000)
+        {
+            gate_readings[5] = 1000;
+        }
+    }
+
+    ResetLCD();
+    lcd.print("Run Time:");
+    lcd.setCursor(0, 1);
+    lcd.print(run_time);
+
+    run_time = 0;
+
+    lcd_msg_1[0] = millis() + LCD_CHANGE_DELAY / 2;
+    lcd_msg_2[0] = millis() + LCD_CHANGE_DELAY;
 }
 
 void ReadAllPhotocells()
@@ -393,7 +395,7 @@ void ManualControl()
         alphas[5] = -1 * alphas[5];
         SetServos(alphas[0], alphas[1], alphas[2], alphas[3], alphas[4], alphas[5]);
     }
-    
+
     Serial.print("Alphas: ");
     for (int i = 0; i < 6; i++)
     {
@@ -402,19 +404,6 @@ void ManualControl()
         Serial.print(",");
     }
     Serial.println("");
-
-    if (millis() > lcd_msg_1[1] + LCD_CHANGE_DELAY)
-    {
-        lcd_msg_1[1] = millis();
-        ResetLCD();
-        lcd.print("Servo Values:");
-    }
-    if (millis() > lcd_msg_2[1] + LCD_CHANGE_DELAY)
-    {
-        lcd_msg_2[1] = millis();
-        ResetLCD();
-        ServoValues();
-    }
 }
 
 void ReadJoysticks()
@@ -468,7 +457,6 @@ void JoysticksOn()
     }
 }
 
-// ServoAngles(&alphas, ) <- pass in variables as such
 double ServoAngle(bool possible, double base_x, double base_y, double base_z, double plat_x, double plat_y, double plat_z, double Beta, double rot[], double home_height)
 {
     double li[3] = {0.0, 0.0, 0.0};
@@ -512,21 +500,18 @@ double ServoAngle(bool possible, double base_x, double base_y, double base_z, do
     return alpha;
 }
 
+// MATH FUNCTIONS
 double DegToRad(double deg)
 {
-    double rad = 0.0;
-    rad = (deg * 1000.0) / 57296.0;
-    return rad;
+    return ((deg * 1000.0) / 57296.0);
 }
 
 double RadToDeg(double rad)
 {
-    double deg = 0.0;
-    deg = (rad * 57296.0) / 1000.0;
-    return deg;
+    return ((rad * 57296.0) / 1000.0);
 }
 
-// Make sure angles are in radians
+// Rotation matrix for motor angles
 void CalcRotation(double rot[], double psi, double theta, double phi)
 {
     // index as width * row + col
@@ -541,6 +526,8 @@ void CalcRotation(double rot[], double psi, double theta, double phi)
     rot[(3 * 2 + 2)] = cos(theta) * cos(phi);
 }
 
+/*  Note: This is not a general matrix multlipication, but rather a streamlined function for this application.
+    This can be done because the size of the possible ixj matrices is constant for the stewart platform.    */
 void MatrixMultRotation(double rot[], double platform[], double result[])
 {
     for (int i = 0; i < 3; i++)
@@ -552,6 +539,8 @@ void MatrixMultRotation(double rot[], double platform[], double result[])
     }
 }
 
+/*  Note: This _is_ a general matrix summation and subtraction function, as both will be needed for this
+    application. As such, this function takes in the size of the ixj matrix. */
 void MatrixSummation(double M1[], double M2[], int rows, int col, double results[], bool sum)
 {
     if (sum)
@@ -576,10 +565,10 @@ void MatrixSummation(double M1[], double M2[], int rows, int col, double results
     }
 }
 
-void ServoMiddle()
+void SetServoMiddle()
 {
-    int mid_1 = 0;
-    int mid_2 = 0;
+    mid_1 = 0;
+    mid_2 = 0;
     theta = 0.0;
     phi = 0.0;
     psi = 0.0;
@@ -589,7 +578,6 @@ void ServoMiddle()
         mid_2 = mid_1 / 2;
         servo_settings[i] = mid_2;
     }
-    ServoValues();
     SetServos(servo_settings[0], servo_settings[1], servo_settings[2], servo_settings[3], servo_settings[4], servo_settings[5]);
 }
 
