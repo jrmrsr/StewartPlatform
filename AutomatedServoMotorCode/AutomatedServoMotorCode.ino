@@ -10,9 +10,9 @@
 
 const int SERVOMINS[6] = {150, 150, 150, 150, 150, 150};
 const int SERVOMAXS[6] = {500, 500, 500, 500, 500, 500};
-const double SERVOCHG = 1.0;
 const int LCD_CHANGE_DELAY = 4000;
-const int GATE_LIMIT = 350;
+const int GATE_LIMIT = 450;
+const double SERVOCHG = 1.0;
 
 // PIN ASSIGNMENTS //
 const int GATE_PIN_1 = A7;
@@ -20,19 +20,20 @@ const int GATE_PIN_2 = A12;
 const int GATE_PIN_3 = A13;
 const int GATE_PIN_4 = A14;
 const int GATE_PIN_5 = A15;
-const int GATE_PIN_6 = A3;
+const int GATE_PIN_6 = A0;
 const int JOYSTICK_1_1 = A8;
 const int JOYSTICK_1_2 = A9;
 const int JOYSTICK_1_SW_PIN = 38;
 const int JOYSTICK_2_1 = A10;
 const int JOYSTICK_2_2 = A11;
 const int JOYSTICK_2_SW_PIN = 39;
-const int MATRIX_ROWS = 3;
 const int LCD_CONTRAST_PIN = A2;
 
 // BASE AND PLATFORM DISTANCES //
 const int LINKAGE_LENGTH = 90;   // s in matlab
 const int SERVO_ARM_LENGTH = 24; // a in matlab
+const int UPDATE_INTERVAL = 50;
+const int MATRIX_ROWS = 3;
 const double BASE_POSITIONS[6][3] = {
     {83.5, 33.4, 0.0},
     {-12.82, 89.01, 0.0},
@@ -48,7 +49,6 @@ const double PLATFORM_POSITIONS[6][3] = {
     {-38.49, -66.67, 0.0},
     {66.6, -6, 0.0}};
 const double BETA[6] = {0.0, 120.0, 120.0, 240.0, 240.0, 0.0};
-const int UPDATE_INTERVAL = 50;
 
 // PLATFORM COORDINATE ANGLES //
 double theta = 0.0;
@@ -58,7 +58,7 @@ double angles[3] = {0.0, 0.0, 0.0};
 
 double home_height[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0}; // zt in matlab code
 float base_platform_deltas[6][2] = {{0.0, 0.0}, {0.0, 0.0}, {0.0, 0.0}, {0.0, 0.0}, {0.0, 0.0}, {0.0, 0.0}};
-double alphas[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0}; // Indexed from motors 1-6 
+double alphas[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0}; // Indexed from motors 1-6
 
 // ANALOG AND DIGITAL READINGS //
 int gate_readings[6] = {0, 0, 0, 0, 0, 0};
@@ -72,7 +72,7 @@ int joystick_angle[3] = {0, 0, 0};
 int mid_1 = 0;
 int mid_2 = 0;
 
-// LCD AND RUN TIMERS // 
+// LCD AND RUN TIMERS //
 unsigned long lcd_msg_1[2] = {0, 0};
 unsigned long lcd_msg_2[2] = {0, 0};
 unsigned long update = 0;
@@ -81,30 +81,31 @@ unsigned long run_time = 0;
 int servo_settings[6] = {0, 0, 0, 0, 0, 0};
 
 bool possible[6] = {true, true, true, true, true, true};
-bool manual_solve_on = true;
+bool manual_solve_lcd = true;
+bool manual_solve_on = false;
 
 // INITIALIZE PWM //
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
 
-// INITIALIZE lCD // 
+// INITIALIZE lCD //
 LiquidCrystal lcd(19, 18, 30, 28, 26, 24); // REGISTER SELECT PIN, ENABLE PIN, D4 PIN, D5 PIN, D6 PIN, D7 PIN
 
 void setup()
 {
-    Serial.begin(9600);     // opens serial port, sets data rate to 9600 bps
-    Serial.setTimeout(10);  // change default (1000ms) to have faster response time
+    Serial.begin(9600);    // opens serial port, sets data rate to 9600 bps
+    Serial.setTimeout(10); // change default (1000ms) to have faster response time
 
     pwm.begin();
     pwm.setPWMFreq(60); // Analog servos run at ~60 Hz updates
 
     lcd.begin(16, 2);
 
-    pinMode(JOYSTICK_1_SW_PIN, INPUT);      // SET PIN AS INPUT
-    pinMode(JOYSTICK_2_SW_PIN, INPUT);  
-    pinMode(LCD_CONTRAST_PIN, OUTPUT);      // SET CONTRAST PIN AS OUTPUT
-       
-    digitalWrite(JOYSTICK_1_SW_PIN, HIGH);  // ENABLE THE INTERNAL PULLUP ON THE INPUT PIN
-    digitalWrite(JOYSTICK_2_SW_PIN, HIGH); 
+    pinMode(JOYSTICK_1_SW_PIN, INPUT); // SET PIN AS INPUT
+    pinMode(JOYSTICK_2_SW_PIN, INPUT);
+    pinMode(LCD_CONTRAST_PIN, OUTPUT); // SET CONTRAST PIN AS OUTPUT
+
+    digitalWrite(JOYSTICK_1_SW_PIN, HIGH); // ENABLE THE INTERNAL PULLUP ON THE INPUT PIN
+    digitalWrite(JOYSTICK_2_SW_PIN, HIGH);
     analogWrite(LCD_CONTRAST_PIN, 5);
 
     for (int i = 0; i < 6; i++)
@@ -113,13 +114,14 @@ void setup()
         base_platform_deltas[i][1] = pow((PLATFORM_POSITIONS[i][1] - BASE_POSITIONS[i][1]), 2); // (yp-yb)^2
         home_height[i] = sqrt((LINKAGE_LENGTH * LINKAGE_LENGTH + SERVO_ARM_LENGTH * SERVO_ARM_LENGTH - base_platform_deltas[i][0] - base_platform_deltas[i][1] - PLATFORM_POSITIONS[i][2]));
     }
-    
+
     ResetLCD();
-    lcd.print("Automated Maze");
+    lcd.print("F.F.");
     lcd.setCursor(0, 1);
     lcd.print("Solver V1");
 
-    // SET LCD MESSAGE TIMERS //  
+    manual_solve_on = false;
+    // SET LCD MESSAGE TIMERS //
     lcd_msg_1[0] = millis() + 1000; // Add 1s to keep the start up message on the screen without blocking the joysticks from working with a delay
     lcd_msg_2[0] = millis() + 1000 + (LCD_CHANGE_DELAY / 2);
     update = millis();
@@ -127,11 +129,10 @@ void setup()
 
 void loop()
 {
-    if (run_time == 0)
+    if (!manual_solve_on)
     {
-        run_time = millis();
+        run_time = 0;
     }
-
     // LCD ALTERNATING MESSAGES //
     if (millis() > lcd_msg_1[0] + LCD_CHANGE_DELAY && joystick_reading_2_SW_pin)
     {
@@ -144,8 +145,8 @@ void loop()
     if (millis() > lcd_msg_2[0] + LCD_CHANGE_DELAY && joystick_reading_2_SW_pin)
     {
         lcd_msg_2[0] = millis();
-        manual_solve_on = !manual_solve_on;
-        if (manual_solve_on)
+        manual_solve_lcd = !manual_solve_lcd;
+        if (manual_solve_lcd)
         {
             ResetLCD();
             lcd.print("Manual Solve:");
@@ -161,17 +162,19 @@ void loop()
         }
     }
 
-    gate_readings[5] = GATE_PIN_6;
-    if (gate_readings[5] < GATE_LIMIT)
+    gate_readings[5] = analogRead(GATE_PIN_6);
+
+    if (gate_readings[5] < GATE_LIMIT && run_time != 0 && manual_solve_on)
     {
-        lcd_msg_1[0] = millis();
-        lcd_msg_2[0] = millis() + LCD_CHANGE_DELAY / 2;
+        lcd_msg_1[0] = millis() + 1000;
+        lcd_msg_2[0] = millis() + 1000 + LCD_CHANGE_DELAY / 2;
         run_time = millis() - run_time;
         ResetLCD();
         lcd.print("Manual Solve");
         lcd.setCursor(0, 1);
         lcd.print("Time: ");
         lcd.print(run_time);
+        manual_solve_on = false;
         run_time = 0;
     }
 
@@ -187,7 +190,7 @@ void loop()
     }
 }
 
-// SERVO HELPER FUNCTIONS // 
+// SERVO HELPER FUNCTIONS //
 void SetServos(double angle_motor_1, double angle_motor_2, double angle_motor_3, double angle_motor_4, double angle_motor_5, double angle_motor_6)
 {
     double temp_servo_settings[6] = {angle_motor_1,
@@ -246,15 +249,18 @@ void MazeSolverSensors()
     {
         gate_readings[2] = analogRead(GATE_PIN_3);
     }
+    delay(750);
 
     SetServos(-6.02, -67.39, 74.32, -31.91, 22.22, 6.64);
     ResetLCD();
     lcd.print("Heading to third");
     lcd.setCursor(0, 1);
     lcd.print("gate");
-    delay(75);
+    delay(100);
 
     SetServos(21.03, -77.83, 47.77, -6.02, -12.80, -28.63);
+    delay(200);
+    // SetServos(51.32, -19.87, 13.91, 7.68, -5.65, -48.51);
 
     SetServos(29.12, -29.12, 72.33, 20.95, -21.75, -20.61);
     ResetLCD();
@@ -262,12 +268,24 @@ void MazeSolverSensors()
     lcd.setCursor(0, 1);
     lcd.print("fourth gate");
     gate_readings[4] = analogRead(GATE_PIN_5);
-    while (gate_readings[4] > 400) //CHECK THIS
+    while (gate_readings[4] > 550) //CHECK THIS
     {
         gate_readings[4] = analogRead(GATE_PIN_5);
+        if ((millis() - run_time) > 5000)
+        {
+            gate_readings[4] = 0;
+            // SetServoMiddle();
+            // delay(75);
+
+            SetServos(84.71, -25.86, 13.02, 41.69, -43.70, -74.35);
+            delay(300);
+
+            SetServos(29.12, -29.12, 72.33, 20.95, -21.75, -20.61);
+            delay(250);
+        }
     }
 
-    SetServos(62.71, -52.72, 35.95, 51.42, -57.86, -52.80);
+    SetServos(57.08, -38.96, 27.80, 29.58, -30.41, -50.21);
     ResetLCD();
     lcd.print("Heading to ");
     lcd.setCursor(0, 1);
@@ -275,8 +293,8 @@ void MazeSolverSensors()
 
     SetServos(22.90, -22.90, 22.90, 25.77, -25.55, -12.68);
     delay(1000);
-    SetServoMiddle();
-    delay(750);
+    // SetServoMiddle();
+    // delay(750);
 
     gate_readings[5] = analogRead(GATE_PIN_6);
     while (gate_readings[5] > GATE_LIMIT)
@@ -284,7 +302,7 @@ void MazeSolverSensors()
         gate_readings[5] = analogRead(GATE_PIN_6);
         if ((millis() - run_time) > 15000)
         {
-            gate_readings[5] = 1000;
+            gate_readings[5] = 0;
         }
     }
 
@@ -308,26 +326,45 @@ void MazeSolverTimer()
     lcd.setCursor(0, 1);
     lcd.print("with timer");
 
-    SetServos(36.87, 7.34, 9.07, -31.36, 52.50, -26.40);
+    SetServos(24.16, 24.34, -23.48, -68.29, 86.91, -30.62);
     delay(1000);
 
-    SetServos(44.37, 7.43, 24.72, -37.18, 37.18, -21.28);
-    delay(1000);
+    // SetServos(44.37, 7.43, 24.72, -37.18, 37.18, -21.28);
+    // delay(1000);
 
-    SetServos(51.46, 36.49, 0.84, -45.73, 45.73, -32.51);
-    delay(1250);
-
-    SetServos(-6.02, -67.39, 74.32, -31.91, 22.22, 6.64);
-    delay(130);
-
-    SetServos(21.03, -77.83, 47.77, -6.02, -12.80, -28.63);
-    delay(400);
-
-    SetServos(22.90, -22.90, 22.90, 25.77, -25.55, -12.68);
+    SetServos(72.61, 39.87, -38.69, -12.01, 24.26, -84.87);
     delay(1500);
 
-    SetServoMiddle();
-    delay(750);
+    // SetServoMiddle();
+    // delay(100);
+    SetServos(21.33, -43.58, 42.91, -10.01, 8.83, -17.18);
+    delay(100);
+
+    SetServos(9.77, -0.16, 1.87, -75.16, 73.91, -13.46);
+    delay(80);
+
+    // SetServoMiddle();
+    // delay(300);
+    SetServos(27.55, -76.08, 66.41, 15.14, -16.02, -19.77);
+    delay(400);
+
+    // SetServos(49.65, -25.51, 18.98, 10.33, -9.00, -45.97);
+    // delay(400);
+
+    // SetServos(9.77,-0.16,1.87,-75.16,73.91,-13.46);
+    // delay(750);
+
+    SetServos(22.90, -22.90, 22.90, 25.77, -25.55, -12.68);
+    delay(1000);
+
+    SetServos(49.65, -25.51, 18.98, 10.33, -9.00, -45.97);
+    delay(1000);
+
+    SetServos(43.62, -40.99, 33.21, 15.51, -15.58, -38.04);
+    delay(700);
+
+    // SetServoMiddle();
+    // delay(750);
 
     gate_readings[5] = analogRead(GATE_PIN_6);
     while (gate_readings[5] > GATE_LIMIT)
@@ -335,7 +372,7 @@ void MazeSolverTimer()
         gate_readings[5] = analogRead(GATE_PIN_6);
         if ((millis() - run_time) > 15000)
         {
-            gate_readings[5] = 1000;
+            gate_readings[5] = 0;
         }
     }
 
@@ -354,7 +391,6 @@ void MazeSolverTimer()
 
 void ManualControl()
 {
-    // index is w * h
     double rotation_matrix[9] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
     double inc[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
     lcd_msg_1[1] = millis();
@@ -422,29 +458,39 @@ void JoystickSetAngle()
         if (joystick_reading_2_1 > 573 && psi <= angle_max)
         {
             psi += SERVOCHG * joystick_reading_2_1 / 300;
+            manual_solve_on = true;
         }
         else if (joystick_reading_2_1 < 450 && psi >= -angle_max)
         {
             psi -= SERVOCHG * (1023 - joystick_reading_2_1) / 300;
+            manual_solve_on = true;
         }
 
         if (joystick_reading_1_2 > 573 && phi <= angle_max)
         {
             phi += SERVOCHG * joystick_reading_1_2 / 300;
+            manual_solve_on = true;
         }
         else if (joystick_reading_1_2 < 450 && phi >= -angle_max)
         {
             phi -= SERVOCHG * (1023 - joystick_reading_1_2) / 300;
+            manual_solve_on = true;
         }
 
         if (joystick_reading_1_1 > 573 && theta <= angle_max)
         {
             theta += SERVOCHG * joystick_reading_2_1 / 300;
+            manual_solve_on = true;
         }
         else if (joystick_reading_1_1 < 450 && theta >= -angle_max)
         {
             theta -= SERVOCHG * (1023 - joystick_reading_1_2) / 300;
+            manual_solve_on = true;
         }
+    }
+    if (run_time == 0 && manual_solve_on)
+    {
+        run_time = millis();
     }
 }
 
